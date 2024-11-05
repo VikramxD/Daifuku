@@ -1,0 +1,8 @@
+torch
+torchvision
+lightning
+git+https://github.com/huggingface/diffusers@mochi
+litserve
+wandb
+setuptools
+
