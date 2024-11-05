@@ -5,7 +5,7 @@ from safetensors.torch import load_file
 from transformers import T5EncoderModel, T5Tokenizer
 from diffusers import AutoencoderKLMochi, FlowMatchEulerDiscreteScheduler, MochiPipeline, MochiTransformer3DModel
 from diffusers.utils.import_utils import is_accelerate_available
-from mochi_settings import MochiConversionSettings
+from configs.mochi_settings import MochiConversionSettings
 
 CTX = init_empty_weights if is_accelerate_available else nullcontext
 TOKENIZER_MAX_LENGTH = 256
