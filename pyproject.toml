@@ -15,12 +15,9 @@ dependencies = [
     "transformers>=4.30.0",
     "accelerate>=0.20.0",
     "safetensors>=0.3.0",
-]
-
-[project.optional-dependencies]
-diffusers = [
     "diffusers @ git+https://github.com/huggingface/diffusers@mochi"
 ]
+
 
 [tool.ruff]
 line-length = 120
