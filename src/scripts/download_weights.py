@@ -10,6 +10,7 @@ def download_weights(output_dir):
     repo_id = "genmo/mochi-1-preview"
     model = "dit.safetensors"
     decoder = "decoder.safetensors"
+    encoder = 'encoder.safetensors'
     if not os.path.exists(output_dir):
         print(f"Creating output directory: {output_dir}")
         os.makedirs(output_dir, exist_ok=True)
@@ -31,6 +32,7 @@ def download_weights(output_dir):
 
     download_file(repo_id, output_dir, model, "model")
     download_file(repo_id, output_dir, decoder, "decoder")
+    download_file(repo_id,output_dir,encoder,'encoder')
 
 if __name__ == "__main__":
     download_weights()

@@ -11,13 +11,13 @@ class DTypes(str, Enum):
 
 
 class MochiConversionSettings(BaseSettings):
-    transformer_checkpoint_path: Optional[Path] = None
+    transformer_checkpoint_path: Optional[Path] = '/home/user/minimochi/src/models/dit.safetensors'
     vae_encoder_checkpoint_path: Optional[Path] = None
-    vae_decoder_checkpoint_path: Optional[Path] = None
-    output_path: Path
+    vae_decoder_checkpoint_path: Optional[Path] = '/home/user/minimochi/src/models/decoder.safetensors'
+    output_path:Path =  'mochi'
     push_to_hub: bool = False
     text_encoder_cache_dir: Optional[Path] = None
-    dtype: Optional[DTypes] = None
+    dtype: Optional[DTypes] = 'bf16'
 
     model_config = {
         "env_prefix": "MOCHI_",
