@@ -17,6 +17,7 @@ dependencies = [
     "safetensors>=0.3.0",
     "diffusers@ git+https://github.com/huggingface/diffusers",
     "sentencepiece",
+    "bitsandbytes"
 ]
 
 

@@ -1,36 +1,74 @@
-from enum import Enum
+"""
+Configuration module for Mochi video generation model.
+"""
+
 from typing import Optional
-from pathlib import Path
 from pydantic_settings import BaseSettings
+import torch
+from pathlib import Path
 
-
-class DTypes(str, Enum):
-    FP16 = "fp16"
-    BF16 = "bf16"
-    FP32 = "fp32"
-
-
-class MochiConversionSettings(BaseSettings):
-    transformer_checkpoint_path: Optional[Path] = '/home/user/minimochi/src/models/dit.safetensors'
-    vae_encoder_checkpoint_path: Optional[Path] = None
-    vae_decoder_checkpoint_path: Optional[Path] = '/home/user/minimochi/src/models/decoder.safetensors'
-    output_path:Path =  'mochi'
-    push_to_hub: bool = False
-    text_encoder_cache_dir: Optional[Path] = None
-    dtype: Optional[DTypes] = 'bf16'
-
-    model_config = {
-        "env_prefix": "MOCHI_",
-        "extra": "ignore",
-    }
-
-    def get_torch_dtype(self):
-        if self.dtype is None:
-            return None
-        import torch
-        dtype_map = {
-            DTypes.FP16: torch.float16,
-            DTypes.BF16: torch.bfloat16,
-            DTypes.FP32: torch.float32
-        }
-        return dtype_map[self.dtype]
+class MochiSettings(BaseSettings):
+    """
+    Configuration settings for Mochi video generation model.
+    
+    All settings can be overridden via environment variables using uppercase names:
+    e.g., TRANSFORMER_PATH="path/to/model"
+    
+    Attributes:
+        transformer_path (str): Path or HuggingFace repo ID for the transformer model.
+        pipeline_path (str): Path to the diffusers pipeline model.
+        dtype (torch.dtype): Torch data type for model precision.
+        device (str): Device to run inference on.
+        model_name (str): Name of the model for logging/tracking.
+        
+        # Optimization Settings
+        enable_vae_tiling (bool): Enable VAE tiling for memory efficiency.
+        enable_model_cpu_offload (bool): Enable CPU offloading for large models.
+        enable_attention_slicing (bool): Enable attention slicing for memory efficiency.
+        attention_slice_size (Optional[int]): Size of attention slices if enabled.
+        
+        # Video Generation Settings
+        num_inference_steps (int): Number of denoising steps.
+        guidance_scale (float): Classifier-free guidance scale.
+        height (int): Output video height in pixels.
+        width (int): Output video width in pixels.
+        num_frames (int): Number of frames to generate.
+        fps (int): Frames per second for video export.
+    """
+    model_name: str = 'Genmo-Mochi'
+    transformer_path: str = "imnotednamode/mochi-1-preview-mix-nf4"
+    pipeline_path: str = "/home/user/minimochi/models/diffusers_models"
+    dtype: torch.dtype = torch.bfloat16
+    device: str = "cuda"
+    
+    # Optimization Settings
+    enable_vae_tiling: bool = True
+    enable_model_cpu_offload: bool = False
+    enable_attention_slicing: bool = False
+    attention_slice_size: Optional[int] = None
+    
+    # Video Generation Settings
+    num_inference_steps: int = 100
+    guidance_scale: float = 4.5
+    height: int = 480
+    width: int = 848
+    num_frames: int = 161
+    fps: int = 15
+    
+    class Config:
+        """Pydantic configuration."""
+        arbitrary_types_allowed = True
+        env_prefix = "MOCHI_"  # Environment variables will be prefixed with MOCHI_
+    
+    def validate_paths(self) -> None:
+        """
+        Validate model paths and CUDA availability.
+        
+        Raises:
+            RuntimeError: If CUDA is not available when device is set to 'cuda'.
+            ValueError: If local pipeline path does not exist.
+        """
+        if not torch.cuda.is_available() and self.device == "cuda":
+            raise RuntimeError("CUDA device requested but CUDA is not available.")
+        
+       

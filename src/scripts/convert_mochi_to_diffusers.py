@@ -1,11 +1,9 @@
 import argparse
 from contextlib import nullcontext
-
 import torch
 from accelerate import init_empty_weights
 from safetensors.torch import load_file
 from transformers import T5EncoderModel, T5Tokenizer
-
 from diffusers import AutoencoderKLMochi, FlowMatchEulerDiscreteScheduler, MochiPipeline, MochiTransformer3DModel
 from diffusers.utils.import_utils import is_accelerate_available
 
@@ -15,9 +13,9 @@ CTX = init_empty_weights if is_accelerate_available else nullcontext
 TOKENIZER_MAX_LENGTH = 256
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--transformer_checkpoint_path", default='/home/user/minimochi/models/dit.safetensors', type=str)
-parser.add_argument("--vae_encoder_checkpoint_path", default='/home/user/minimochi/models/encoder.safetensors', type=str)
-parser.add_argument("--vae_decoder_checkpoint_path", default='/home/user/minimochi/models/decoder.safetensors', type=str)
+parser.add_argument("--transformer_checkpoint_path", default='../models/dit.safetensors', type=str)
+parser.add_argument("--vae_encoder_checkpoint_path", default='../minimochi/models/encoder.safetensors', type=str)
+parser.add_argument("--vae_decoder_checkpoint_path", default='../minimochi/models/decoder.safetensors', type=str)
 parser.add_argument("--output_path", required=True, type=str)
 parser.add_argument("--push_to_hub", action="store_true", default=False, help="Whether to push to HF Hub after saving")
 parser.add_argument("--text_encoder_cache_dir", type=str, default=None, help="Path to text encoder cache directory")
