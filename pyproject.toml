@@ -15,7 +15,7 @@ dependencies = [
     "transformers>=4.30.0",
     "accelerate>=0.20.0",
     "safetensors>=0.3.0",
-    "diffusers@ git+https://github.com/huggingface/diffusers"
+    "diffusers@ git+https://github.com/huggingface/diffusers",
     "sentencepiece",
 ]
 
