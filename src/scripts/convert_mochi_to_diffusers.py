@@ -1,14 +1,30 @@
+import argparse
 from contextlib import nullcontext
+
 import torch
 from accelerate import init_empty_weights
 from safetensors.torch import load_file
 from transformers import T5EncoderModel, T5Tokenizer
+
 from diffusers import AutoencoderKLMochi, FlowMatchEulerDiscreteScheduler, MochiPipeline, MochiTransformer3DModel
 from diffusers.utils.import_utils import is_accelerate_available
-from configs.mochi_settings import MochiConversionSettings
+
 
 CTX = init_empty_weights if is_accelerate_available else nullcontext
+
 TOKENIZER_MAX_LENGTH = 256
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--transformer_checkpoint_path", default='/home/user/minimochi/models/dit.safetensors', type=str)
+parser.add_argument("--vae_encoder_checkpoint_path", default='/home/user/minimochi/models/encoder.safetensors', type=str)
+parser.add_argument("--vae_decoder_checkpoint_path", default='/home/user/minimochi/models/decoder.safetensors', type=str)
+parser.add_argument("--output_path", required=True, type=str)
+parser.add_argument("--push_to_hub", action="store_true", default=False, help="Whether to push to HF Hub after saving")
+parser.add_argument("--text_encoder_cache_dir", type=str, default=None, help="Path to text encoder cache directory")
+parser.add_argument("--dtype", type=str, default=None)
+
+args = parser.parse_args()
+
 
 # This is specific to `AdaLayerNormContinuous`:
 # Diffusers implementation split the linear projection into the scale, shift while Mochi split it into shift, scale
@@ -17,10 +33,12 @@ def swap_scale_shift(weight, dim):
     new_weight = torch.cat([scale, shift], dim=0)
     return new_weight
 
+
 def swap_proj_gate(weight):
     proj, gate = weight.chunk(2, dim=0)
     new_weight = torch.cat([gate, proj], dim=0)
     return new_weight
+
 
 def convert_mochi_transformer_checkpoint_to_diffusers(ckpt_path):
     original_state_dict = load_file(ckpt_path, device="cpu")
@@ -134,6 +152,7 @@ def convert_mochi_transformer_checkpoint_to_diffusers(ckpt_path):
 
     return new_state_dict
 
+
 def convert_mochi_vae_state_dict_to_diffusers(encoder_ckpt_path, decoder_ckpt_path):
     encoder_state_dict = load_file(encoder_ckpt_path, device="cpu")
     decoder_state_dict = load_file(decoder_ckpt_path, device="cpu")
@@ -239,7 +258,6 @@ def convert_mochi_vae_state_dict_to_diffusers(encoder_ckpt_path, decoder_ckpt_pa
 
     print("Remaining Decoder Keys:", decoder_state_dict.keys())
 
-    # ==== Encoder =====
     prefix = "encoder."
 
     new_state_dict[f"{prefix}proj_in.weight"] = encoder_state_dict.pop("layers.0.weight")
@@ -284,9 +302,9 @@ def convert_mochi_vae_state_dict_to_diffusers(encoder_ckpt_path, decoder_ckpt_pa
 
         for i in range(down_block_layers[block]):
             # Convert resnets
-            new_state_dict[
-                f"{prefix}down_blocks.{block}.resnets.{i}.norm1.norm_layer.weight"
-            ] = encoder_state_dict.pop(f"layers.{block+4}.layers.{i+1}.stack.0.weight")
+            new_state_dict[f"{prefix}down_blocks.{block}.resnets.{i}.norm1.norm_layer.weight"] = encoder_state_dict.pop(
+                f"layers.{block+4}.layers.{i+1}.stack.0.weight"
+            )
             new_state_dict[f"{prefix}down_blocks.{block}.resnets.{i}.norm1.norm_layer.bias"] = encoder_state_dict.pop(
                 f"layers.{block+4}.layers.{i+1}.stack.0.bias"
             )
@@ -296,9 +314,9 @@ def convert_mochi_vae_state_dict_to_diffusers(encoder_ckpt_path, decoder_ckpt_pa
             new_state_dict[f"{prefix}down_blocks.{block}.resnets.{i}.conv1.conv.bias"] = encoder_state_dict.pop(
                 f"layers.{block+4}.layers.{i+1}.stack.2.bias"
             )
-            new_state_dict[
-                f"{prefix}down_blocks.{block}.resnets.{i}.norm2.norm_layer.weight"
-            ] = encoder_state_dict.pop(f"layers.{block+4}.layers.{i+1}.stack.3.weight")
+            new_state_dict[f"{prefix}down_blocks.{block}.resnets.{i}.norm2.norm_layer.weight"] = encoder_state_dict.pop(
+                f"layers.{block+4}.layers.{i+1}.stack.3.weight"
+            )
             new_state_dict[f"{prefix}down_blocks.{block}.resnets.{i}.norm2.norm_layer.bias"] = encoder_state_dict.pop(
                 f"layers.{block+4}.layers.{i+1}.stack.3.bias"
             )
@@ -309,24 +327,26 @@ def convert_mochi_vae_state_dict_to_diffusers(encoder_ckpt_path, decoder_ckpt_pa
                 f"layers.{block+4}.layers.{i+1}.stack.5.bias"
             )
 
-            # Convert attentions
+            # Convert norms and attentions
+            new_state_dict[f"{prefix}down_blocks.{block}.norms.{i}.norm_layer.weight"] = encoder_state_dict.pop(
+                f"layers.{block+4}.layers.{i+1}.attn_block.norm.weight"
+            )
+            new_state_dict[f"{prefix}down_blocks.{block}.norms.{i}.norm_layer.bias"] = encoder_state_dict.pop(
+                f"layers.{block+4}.layers.{i+1}.attn_block.norm.bias"
+            )
+
+            # Convert attention layers
             qkv_weight = encoder_state_dict.pop(f"layers.{block+4}.layers.{i+1}.attn_block.attn.qkv.weight")
             q, k, v = qkv_weight.chunk(3, dim=0)
 
-            new_state_dict[f"{prefix}down_blocks.{block}.attn.to_q.weight"] = q
-            new_state_dict[f"{prefix}down_blocks.{block}.attn.to_k.weight"] = k
-            new_state_dict[f"{prefix}down_blocks.{block}.attn.to_v.weight"] = v
-            new_state_dict[f"{prefix}down_blocks.{block}.attn.to_out.0.weight"] = encoder_state_dict.pop(
+            new_state_dict[f"{prefix}down_blocks.{block}.attentions.{i}.to_q.weight"] = q
+            new_state_dict[f"{prefix}down_blocks.{block}.attentions.{i}.to_k.weight"] = k
+            new_state_dict[f"{prefix}down_blocks.{block}.attentions.{i}.to_v.weight"] = v
+            new_state_dict[f"{prefix}down_blocks.{block}.attentions.{i}.to_out.0.weight"] = encoder_state_dict.pop(
                 f"layers.{block+4}.layers.{i+1}.attn_block.attn.out.weight"
             )
-            new_state_dict[f"{prefix}down_blocks.{block}.attn.to_out.0.bias"] = encoder_state_dict.pop(
+            new_state_dict[f"{prefix}down_blocks.{block}.attentions.{i}.to_out.0.bias"] = encoder_state_dict.pop(
                 f"layers.{block+4}.layers.{i+1}.attn_block.attn.out.bias"
-            )
-            new_state_dict[f"{prefix}down_blocks.{block}.norm.norm_layer.weight"] = encoder_state_dict.pop(
-                f"layers.{block+4}.layers.{i+1}.attn_block.norm.weight"
-            )
-            new_state_dict[f"{prefix}down_blocks.{block}.norm.norm_layer.bias"] = encoder_state_dict.pop(
-                f"layers.{block+4}.layers.{i+1}.attn_block.norm.bias"
             )
 
     # Convert block_out (MochiMidBlock3D)
@@ -357,24 +377,26 @@ def convert_mochi_vae_state_dict_to_diffusers(encoder_ckpt_path, decoder_ckpt_pa
             f"layers.{i+7}.stack.5.bias"
         )
 
-        # Convert attentions
+        # Convert norms and attentions for block_out
+        new_state_dict[f"{prefix}block_out.norms.{i}.norm_layer.weight"] = encoder_state_dict.pop(
+            f"layers.{i+7}.attn_block.norm.weight"
+        )
+        new_state_dict[f"{prefix}block_out.norms.{i}.norm_layer.bias"] = encoder_state_dict.pop(
+            f"layers.{i+7}.attn_block.norm.bias"
+        )
+
+        # Convert attention layers for block_out
         qkv_weight = encoder_state_dict.pop(f"layers.{i+7}.attn_block.attn.qkv.weight")
         q, k, v = qkv_weight.chunk(3, dim=0)
 
-        new_state_dict[f"{prefix}block_out.attn.to_q.weight"] = q
-        new_state_dict[f"{prefix}block_out.attn.to_k.weight"] = k
-        new_state_dict[f"{prefix}block_out.attn.to_v.weight"] = v
-        new_state_dict[f"{prefix}block_out.attn.to_out.0.weight"] = encoder_state_dict.pop(
+        new_state_dict[f"{prefix}block_out.attentions.{i}.to_q.weight"] = q
+        new_state_dict[f"{prefix}block_out.attentions.{i}.to_k.weight"] = k
+        new_state_dict[f"{prefix}block_out.attentions.{i}.to_v.weight"] = v
+        new_state_dict[f"{prefix}block_out.attentions.{i}.to_out.0.weight"] = encoder_state_dict.pop(
             f"layers.{i+7}.attn_block.attn.out.weight"
         )
-        new_state_dict[f"{prefix}block_out.attn.to_out.0.bias"] = encoder_state_dict.pop(
+        new_state_dict[f"{prefix}block_out.attentions.{i}.to_out.0.bias"] = encoder_state_dict.pop(
             f"layers.{i+7}.attn_block.attn.out.bias"
-        )
-        new_state_dict[f"{prefix}block_out.norm.norm_layer.weight"] = encoder_state_dict.pop(
-            f"layers.{i+7}.attn_block.norm.weight"
-        )
-        new_state_dict[f"{prefix}block_out.norm.norm_layer.bias"] = encoder_state_dict.pop(
-            f"layers.{i+7}.attn_block.norm.bias"
         )
 
     # Convert output layers
@@ -386,25 +408,34 @@ def convert_mochi_vae_state_dict_to_diffusers(encoder_ckpt_path, decoder_ckpt_pa
 
     return new_state_dict
 
-def main(settings: MochiConversionSettings):
-    dtype = settings.get_torch_dtype()
-    
+def main(args):
+    if args.dtype is None:
+        dtype = None
+    if args.dtype == "fp16":
+        dtype = torch.float16
+    elif args.dtype == "bf16":
+        dtype = torch.bfloat16
+    elif args.dtype == "fp32":
+        dtype = torch.float32
+    else:
+        raise ValueError(f"Unsupported dtype: {args.dtype}")
+
     transformer = None
     vae = None
 
-    if settings.transformer_checkpoint_path is not None:
+    if args.transformer_checkpoint_path is not None:
         converted_transformer_state_dict = convert_mochi_transformer_checkpoint_to_diffusers(
-            settings.transformer_checkpoint_path
+            args.transformer_checkpoint_path
         )
         transformer = MochiTransformer3DModel()
         transformer.load_state_dict(converted_transformer_state_dict, strict=True)
         if dtype is not None:
             transformer = transformer.to(dtype=dtype)
 
-    if settings.vae_encoder_checkpoint_path is not None and settings.vae_decoder_checkpoint_path is not None:
+    if args.vae_encoder_checkpoint_path is not None and args.vae_decoder_checkpoint_path is not None:
         vae = AutoencoderKLMochi(latent_channels=12, out_channels=3)
         converted_vae_state_dict = convert_mochi_vae_state_dict_to_diffusers(
-            settings.vae_encoder_checkpoint_path, settings.vae_decoder_checkpoint_path
+            args.vae_encoder_checkpoint_path, args.vae_decoder_checkpoint_path
         )
         vae.load_state_dict(converted_vae_state_dict, strict=True)
         if dtype is not None:
@@ -412,7 +443,7 @@ def main(settings: MochiConversionSettings):
 
     text_encoder_id = "google/t5-v1_1-xxl"
     tokenizer = T5Tokenizer.from_pretrained(text_encoder_id, model_max_length=TOKENIZER_MAX_LENGTH)
-    text_encoder = T5EncoderModel.from_pretrained(text_encoder_id, cache_dir=settings.text_encoder_cache_dir)
+    text_encoder = T5EncoderModel.from_pretrained(text_encoder_id, cache_dir=args.text_encoder_cache_dir)
 
     # Apparently, the conversion does not work anymore without this :shrug:
     for param in text_encoder.parameters():
@@ -425,8 +456,8 @@ def main(settings: MochiConversionSettings):
         tokenizer=tokenizer,
         transformer=transformer,
     )
-    pipe.save_pretrained(settings.output_path, safe_serialization=True, max_shard_size="5GB", push_to_hub=settings.push_to_hub)
+    pipe.save_pretrained(args.output_path, safe_serialization=True, max_shard_size="5GB", push_to_hub=args.push_to_hub)
+
 
 if __name__ == "__main__":
-    settings = MochiConversionSettings()
-    main(settings)
+    main(args)

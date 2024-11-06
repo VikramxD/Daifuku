@@ -1,8 +1,12 @@
 import torch 
-from diffusers import MochiPipeline
+from diffusers import MochiPipeline ,MochiTransformer3DModel
+from diffusers.models.autoencoders.autoencoder_kl_mochi import AutoencoderKLMochi
+
 from diffusers.utils import export_to_video
 
-pipe = MochiPipeline.from_pretrained("feizhengcong/mochi-1-preview-diffusers", torch_dtype=torch.bfloat16)
+#transformer = MochiTransformer3DModel.from_pretrained("imnotednamode/mochi-1-preview-mix-nf4", torch_dtype=torch.bfloat16)
+
+pipe = MochiPipeline.from_pretrained('/home/user/minimochi/models/diffusers_models')
 
 
 pipe.to('cuda')

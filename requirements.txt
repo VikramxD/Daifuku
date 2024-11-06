@@ -1,7 +1,7 @@
 torch
 torchvision
 lightning
-git+https://github.com/huggingface/diffusers@mochi
+git+https://github.com/huggingface/diffusers
 litserve
 wandb
 setuptools
