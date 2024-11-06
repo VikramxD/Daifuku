@@ -235,6 +235,6 @@ if __name__ == "__main__":
         api_path='/api/v1/video/mochi',
         accelerator="auto",
         max_batch_size=1,  # Process one video at a time
-        batch_timeout=0.1
+        batch_timeout=50000
     )
     server.run(port=8000)
