@@ -5,7 +5,9 @@ from diffusers.utils import export_to_video
 
 
 transformer = MochiTransformer3DModel.from_pretrained("imnotednamode/mochi-1-preview-mix-nf4", torch_dtype=torch.bfloat16)
+transformer = torch.compile(transformer,mode = 'max_autotune')
 pipe = MochiPipeline.from_pretrained('/home/user/minimochi/models/diffusers_models',torch_dtype=torch.bfloat16, transformer=transformer)
+
 
 
 pipe.to('cuda')
