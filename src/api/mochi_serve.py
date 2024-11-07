@@ -204,10 +204,17 @@ class MochiVideoAPI(LitAPI):
                     "item_index": output.get("item_index")
                 }
             
+            # Upload video to S3 and get signed URL
+            video_path = output.get("video_path")
+            with open(video_path, 'rb') as video_file:
+                video_bytes = io.BytesIO(video_file.read())
+                s3_response = mp4_to_s3_json(video_bytes, Path(video_path).name)
+            
             # Handle success cases
             return {
                 "status": "success",
-                "video_path": output.get("video_path"),
+                "video_id": s3_response["video_id"],
+                "video_url": s3_response["url"],
                 "generation_info": {
                     "prompt": output.get("prompt"),
                     "parameters": output.get("generation_params", {})
