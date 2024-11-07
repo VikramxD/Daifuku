@@ -37,23 +37,23 @@ class MochiSettings(BaseSettings):
     """
     model_name: str = 'Genmo-Mochi'
     transformer_path: str = "imnotednamode/mochi-1-preview-mix-nf4"
-    pipeline_path: str = "/home/user/minimochi/weights/converted_models"
+    pipeline_path: str = "/home/ubuntu/minimochi/src/scripts/weights/converted_models"
     dtype: torch.dtype = torch.bfloat16
     device: str = "cuda"
     
     # Optimization Settings
     enable_vae_tiling: bool = True
-    enable_model_cpu_offload: bool = False
+    enable_model_cpu_offload: bool = True
     enable_attention_slicing: bool = False
     attention_slice_size: Optional[int] = None
     
     # Video Generation Settings
-    num_inference_steps: int = 100
-    guidance_scale: float = 4.5
+    num_inference_steps: int = 20
+    guidance_scale: float = 7.5
     height: int = 480
     width: int = 848
-    num_frames: int = 161
-    fps: int = 15
+    num_frames: int = 150
+    fps: int = 10
     
     class Config:
         """Pydantic configuration."""
