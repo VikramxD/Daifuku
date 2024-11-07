@@ -15,8 +15,9 @@ import os, time
 from prometheus_client import CollectorRegistry, Histogram, make_asgi_app, multiprocess
 from configs.mochi_settings import MochiSettings
 from scripts.mochi_diffusers import MochiInference
-from scripts import mp4_to_s3_json
+from scripts.mp4_to_s3_json import mp4_to_s3_json
 import litserve
+import tempfile
 
 # Set the directory for multiprocess mode
 os.environ["PROMETHEUS_MULTIPROC_DIR"] = "/tmp/prometheus_multiproc_dir"
@@ -139,38 +140,43 @@ class MochiVideoAPI(LitAPI):
                     # Validate and parse the request
                     generation_request = VideoGenerationRequest(**request)
                     
-                    # Create unique output path
-                    timestamp = int(time.time())
-                    output_path = self.output_dir / f"mochi_{timestamp}.mp4"
-                    
-                    # Prepare generation parameters
-                    generation_params = generation_request.dict()
-                    generation_params["output_path"] = str(output_path)
-                    
-                    # Generate video
-                    logger.info(f"Starting generation for prompt: {generation_params['prompt']}")
-                    self.engine.generate(**generation_params)
-                    
-                    end_time = time.time()
-                    self.log("inference_time", end_time - start_time)
-                    
-                    # Get memory usage
-                    allocated, peak = self.engine.get_memory_usage()
-                    
-                    result = {
-                        "status": "success",
-                        "video_path": str(output_path),
-                        "prompt": generation_params["prompt"],
-                        "generation_params": generation_params,
-                        "time_taken": end_time - start_time,
-                        "memory_usage": {
-                            "allocated_gb": round(allocated, 2),
-                            "peak_gb": round(peak, 2)
+                    # Create temporary file path
+                    with tempfile.TemporaryDirectory() as temp_dir:
+                        temp_video_path = os.path.join(temp_dir, f"mochi_{int(time.time())}.mp4")
+                        
+                        # Prepare generation parameters
+                        generation_params = generation_request.dict()
+                        generation_params["output_path"] = temp_video_path
+                        
+                        # Generate video
+                        logger.info(f"Starting generation for prompt: {generation_params['prompt']}")
+                        self.engine.generate(**generation_params)
+                        
+                        end_time = time.time()
+                        self.log("inference_time", end_time - start_time)
+                        
+                        # Get memory usage
+                        allocated, peak = self.engine.get_memory_usage()
+
+                        # Upload to S3
+                        with open(temp_video_path, "rb") as video_file:
+                            s3_response = mp4_to_s3_json(video_file, "video.mp4")
+                        
+                        result = {
+                            "status": "success",
+                            "video_id": s3_response["video_id"],
+                            "video_url": s3_response["url"],
+                            "prompt": generation_params["prompt"],
+                            "generation_params": generation_params,
+                            "time_taken": end_time - start_time,
+                            "memory_usage": {
+                                "allocated_gb": round(allocated, 2),
+                                "peak_gb": round(peak, 2)
+                            }
                         }
-                    }
-                    results.append(result)
-                    
-                    logger.info(f"Generation completed for prompt: {generation_params['prompt']}")
+                        results.append(result)
+                        
+                        logger.info(f"Generation completed for prompt: {generation_params['prompt']}")
                     
                 except Exception as e:
                     logger.error(f"Error in generation for request: {e}")
@@ -210,29 +216,21 @@ class MochiVideoAPI(LitAPI):
                     "item_index": output.get("item_index")
                 }
             
-            # Upload video to S3 and get signed URL
-            video_path = output.get("video_path")
-            with open(video_path, 'rb') as video_file:
-                video_bytes = io.BytesIO(video_file.read())
-                s3_response = mp4_to_s3_json(video_bytes, Path(video_path).name)
-            
-            # Handle success cases
+            # Return the successful response directly
             return {
                 "status": "success",
-                "video_id": s3_response["video_id"],
-                "video_url": s3_response["url"],
+                "video_id": output.get("video_id"),
+                "video_url": output.get("video_url"),
                 "generation_info": {
                     "prompt": output.get("prompt"),
                     "parameters": output.get("generation_params", {})
                 },
                 "performance": {
                     "time_taken": round(output.get("time_taken", 0), 2),
-                    "memory_usage": output.get("memory_usage", {
-                        "allocated_gb": 0,
-                        "peak_gb": 0
-                    })
+                    "memory_usage": output.get("memory_usage", {})
                 }
             }
+            
         except Exception as e:
             logger.error(f"Error in encode_response: {e}")
             return {
