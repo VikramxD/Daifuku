@@ -1,23 +1,21 @@
-#! /usr/bin/env python3
-import click
 import os
+from pathlib import Path
+from configs.mochi_weights import MochiWeightsSettings
 
+def download_weights(settings: MochiWeightsSettings = MochiWeightsSettings()):
+    """
+    Download model weights using configuration from pydantic settings.
+    
+    Args:
+        settings: Settings instance containing configuration
+    """
+    if not settings.output_dir.exists():
+        print(f"Creating output directory: {settings.output_dir}")
+        settings.output_dir.mkdir(parents=True, exist_ok=True)
 
-
-@click.command()
-@click.argument('output_dir', required=True)
-def download_weights(output_dir):
-    repo_id = "genmo/mochi-1-preview"
-    model = "dit.safetensors"
-    decoder = "decoder.safetensors"
-    encoder = 'encoder.safetensors'
-    if not os.path.exists(output_dir):
-        print(f"Creating output directory: {output_dir}")
-        os.makedirs(output_dir, exist_ok=True)
-
-    def download_file(repo_id, output_dir, filename, description):
-        file_path = os.path.join(output_dir, filename)
-        if not os.path.exists(file_path):
+    def download_file(repo_id: str, output_dir: Path, filename: str, description: str):
+        file_path = output_dir / filename
+        if not file_path.exists():
             print(f"Downloading mochi {description} to: {file_path}")
             from huggingface_hub import snapshot_download
             snapshot_download(
@@ -28,11 +26,11 @@ def download_weights(output_dir):
             )
         else:
             print(f"{description} already exists in: {file_path}")
-        assert os.path.exists(file_path)
+        assert file_path.exists()
 
-    download_file(repo_id, output_dir, model, "model")
-    download_file(repo_id, output_dir, decoder, "decoder")
-    download_file(repo_id,output_dir,encoder,'encoder')
+    download_file(settings.repo_id, settings.output_dir, settings.model_file, "model")
+    download_file(settings.repo_id, settings.output_dir, settings.decoder_file, "decoder")
+    download_file(settings.repo_id, settings.output_dir, settings.encoder_file, "encoder")
 
 if __name__ == "__main__":
     download_weights()

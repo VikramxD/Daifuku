@@ -1,7 +1,7 @@
 """
 Inference class for Mochi video generation model.
 Tested on A6000 
-Generates Video for 20 inference steps at 480 resolution   in 10 minutes
+Generates Video for 20 inference steps at 480 resolution in 10 minutes
 """
 
 from pathlib import Path
