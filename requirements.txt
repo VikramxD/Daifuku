@@ -6,3 +6,4 @@ litserve
 wandb
 setuptools
 pydantic-settings
+boto3
