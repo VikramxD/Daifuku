@@ -63,51 +63,31 @@ python src/api/mochi_serve.py
 
 ```python
 import requests
-from typing import Optional, Dict, Any
+import json
 
-def generate_video(
-    prompt: str,
-    frames: int = 60,
-    fps: int = 30,
-    height: int = 480,
-    width: int = 640
-) -> Optional[Dict[str, Any]]:
-    """
-    Generate a video from a text prompt.
-    
-    Args:
-        prompt (str): Text description of the desired video
-        frames (int): Number of frames to generate
-        fps (int): Frames per second
-        height (int): Video height in pixels
-        width (int): Video width in pixels
-    
-    Returns:
-        Optional[Dict[str, Any]]: Response data or None on error
-    """
-    url = "http://localhost:8000/api/v1/mochi"
-    
-    payload = {
-        "prompt": prompt,
-        "num_frames": frames,
-        "fps": fps,
-        "height": height,
-        "width": width
-    }
-    
-    try:
-        response = requests.post(url, json=payload)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Error: {e}")
-        return None
+url = "http://localhost:8000/api/v1/video/mochi"
 
-# Example
-result = generate_video(
-    prompt="A serene mountain landscape with a flowing river at sunset"
-)
-print(result)
+payload = json.dumps([
+  {
+    "prompt": "A beautiful sunset over the mountains",
+    "negative_prompt": "No clouds",
+    "num_inference_steps": 30,
+    "guidance_scale": 7.5,
+    "height": 480,
+    "width": 480,
+    "num_frames": 150,
+    "fps": 10
+  }
+])
+headers = {
+  'Content-Type': 'application/json',
+  'Content-Type': 'application/json'
+}
+
+response = requests.request("POST", url, headers=headers, data=payload)
+
+print(response.text)
+
 ```
 
 ## 📖 Documentation
