@@ -20,7 +20,7 @@
 
 ## ✨ Overview
 
-**Minimochi** is your gateway to next-generation video creation. Powered by state-of-the-art diffusion models, our API transforms simple text descriptions into captivating video content. Whether you're a developer, content creator, or researcher, Minimochi provides the tools you need for seamless AI video integration.
+**Minimochi** serves the genmoai/mochi model as an easy to build API
 
 
 ## 📋 Prerequisites
