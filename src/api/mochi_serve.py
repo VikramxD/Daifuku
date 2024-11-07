@@ -14,6 +14,7 @@ from loguru import logger
 
 from configs.mochi_settings import MochiSettings
 from scripts.mochi_diffusers import MochiInference
+from scripts import mp4_to_s3_json
 
 class VideoGenerationRequest(BaseModel):
     """
@@ -228,14 +229,13 @@ if __name__ == "__main__":
         level="DEBUG"
     )
     
-    # Initialize and run server
     api = MochiVideoAPI()
     server = LitServer(
         api,
         api_path='/api/v1/video/mochi',
         accelerator="auto",
         devices ="auto",
-        max_batch_size=1,  # Process one video at a time
+        max_batch_size=1, 
         batch_timeout=50000
     )
     server.run(port=8000)
