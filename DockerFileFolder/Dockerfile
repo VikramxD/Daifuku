@@ -28,7 +28,9 @@ WORKDIR /app
 COPY . /app
 
 RUN pip install uv
-RUN uv pip install --no-cache-dir -r /app/requirements.txt
+RUN uv pip install --no-cache-dir -r requirements.txt
 RUN uv pip install -e . --no-build-isolation
+
 EXPOSE 8000
-CMD ["python", "/app/mochi_serve.py"]
+
+CMD ["python", "/app/api/mochi_serve.py"]
