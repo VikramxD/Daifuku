@@ -4,7 +4,7 @@
    <h1> MiniMochi </h1>
    <img src="https://github.com/user-attachments/assets/ea97ff3a-39b3-418a-a62c-5687e7222117" alt="Cute Mochi Logo" width="200" height="200">
 
-### Serving Genmo\.ai Mochi Model in Production
+### Serve Genmo\.ai Mochi Model in Production
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg?style=flat-square)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
