@@ -3,6 +3,8 @@ FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu20.04
 ARG PYTHON_VERSION=3.12
 
 ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Python and dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
         software-properties-common \
         wget \
@@ -22,16 +24,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-
+# Set working directory
 WORKDIR /app
 
+# Copy everything
 COPY . .
 
+# Install project dependencies
 RUN pip install uv
 RUN uv pip install --no-cache-dir -r requirements.txt
 RUN uv pip install -e . --no-build-isolation
 
-WORKDIR /app/api
+# Create log directory if it doesn't exist
+RUN mkdir -p src/api/logs
+
+# Set working directory for the server
+WORKDIR /app/src/api
+
+# Expose port
 EXPOSE 8000
 
+# Command to run the server
 CMD ["python", "mochi_serve.py"]
