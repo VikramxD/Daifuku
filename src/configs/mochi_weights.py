@@ -15,9 +15,9 @@ class MochiWeightsSettings(BaseSettings):
     vae_encoder_checkpoint_path: Path = Path("weights/encoder.safetensors")
     vae_decoder_checkpoint_path: Path = Path("weights/decoder.safetensors")
     output_path: Path = Path("weights/converted_models")
-    push_to_hub: bool = False
+    push_to_hub: bool = True
     text_encoder_cache_dir: Optional[Path] = None
-    dtype: Optional[str] = None  # Options: "fp16", "bf16", "fp32"
+    dtype: Optional[str] = 'bf16'  # Options: "fp16", "bf16",
 
     class Config:
         env_prefix = "MOCHI_"
