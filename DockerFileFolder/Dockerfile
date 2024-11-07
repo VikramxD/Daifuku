@@ -23,7 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 
-
+WORKDIR /app
 
 COPY . .
 
@@ -31,6 +31,7 @@ RUN pip install uv
 RUN uv pip install --no-cache-dir -r requirements.txt
 RUN uv pip install -e . --no-build-isolation
 
+WORKDIR /app/api
 EXPOSE 8000
 
-CMD ["python", "api/mochi_serve.py"]
+CMD ["python", "mochi_serve.py"]
