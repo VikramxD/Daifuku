@@ -16,9 +16,15 @@ from prometheus_client import CollectorRegistry, Histogram, make_asgi_app, multi
 from configs.mochi_settings import MochiSettings
 from scripts.mochi_diffusers import MochiInference
 from scripts import mp4_to_s3_json
+import litserve
+
+# Set the directory for multiprocess mode
+os.environ["PROMETHEUS_MULTIPROC_DIR"] = "/tmp/prometheus_multiproc_dir"
+
 # Ensure the directory exists
 if not os.path.exists("/tmp/prometheus_multiproc_dir"):
     os.makedirs("/tmp/prometheus_multiproc_dir")
+
 
 # Use a multiprocess registry
 registry = CollectorRegistry()
@@ -26,7 +32,7 @@ multiprocess.MultiProcessCollector(registry)
 
 
 
-class PrometheusLogger(ls.Logger):
+class PrometheusLogger(litserve.Logger):
     def __init__(self):
         super().__init__()
         self.function_duration = Histogram("request_processing_seconds", "Time spent processing request", ["function_name"], registry=registry)
@@ -254,14 +260,15 @@ if __name__ == "__main__":
     
 
     try:
-        api = MochiVideoAPI(logger=prometheus_logger)
+        api = MochiVideoAPI()
         server = LitServer(
             api,
             api_path='/api/v1/video/mochi',
             accelerator="auto",
             devices="auto",
             max_batch_size=1,
-            track_requests=True
+            track_requests=True,
+            loggers=prometheus_logger
         )
         logger.info("Starting server on port 8000")
         server.run(port=8000)
