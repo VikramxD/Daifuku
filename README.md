@@ -23,14 +23,6 @@
 
 **Minimochi** is your gateway to next-generation video creation. Powered by state-of-the-art diffusion models, our API transforms simple text descriptions into captivating video content. Whether you're a developer, content creator, or researcher, Minimochi provides the tools you need for seamless AI video integration.
 
-## 🚀 Features
-
-- **🎨 High-Quality Generation** - Transform text into stunning, fluid videos
-- **🎛️ Customizable Parameters** - Fine-tune every aspect of your video output
-- **⚡ Optimized Performance** - Engineered for maximum GPU utilization
-- **🔌 Simple Integration** - Developer-friendly RESTful API
-- **☁️ AWS Integration** - Seamless cloud storage with S3
-- **🛡️ Production Ready** - Enterprise-grade error handling and logging
 
 ## 📋 Prerequisites
 
@@ -41,7 +33,7 @@ Before diving in, ensure you have:
   - Recommended: NVIDIA A100 or H100
   - Suitable: NVIDIA A6000 or A40
 - ☁️ Active AWS account
-- 🐳 Docker (optional)
+- 🐳 Docker 
 
 ## 🛠️ Installation
 
@@ -94,7 +86,7 @@ def generate_video(
     Returns:
         Optional[Dict[str, Any]]: Response data or None on error
     """
-    url = "http://localhost:8000/predict"
+    url = "http://localhost:8000/api/v1/mochi"
     
     payload = {
         "prompt": prompt,
