@@ -9,11 +9,10 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](https://makeapullrequest.com)
 [![Made with ❤️](https://img.shields.io/badge/Made%20with-%E2%9D%A4%EF%B8%8F-red.svg?style=flat-square)](https://github.com/VikramxD/minimochi)
 
-[📚 Features](#-features) • 
 [⚙️ Installation](#%EF%B8%8F-installation) • 
 [🎮 Usage](#-usage) • 
 [📖 Docs](#-documentation) • 
-[🤝 Contribute](#-testing)
+
 
 ---
 
