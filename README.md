@@ -129,23 +129,9 @@ AWS_BUCKET_NAME=your_s3_bucket
 | 768x768 | 60 | 24GB |
 | 1024x1024 | 60 | 40GB |
 
-## 🧪 Testing
 
-```bash
-# Run tests
-pytest tests/
 
-# Run with coverage
-pytest --cov=src tests/
-```
 
-## 🤝 Contributing
-
-1\. Fork the repository
-2\. Create your feature branch \(`git checkout -b feature/AmazingFeature`\)
-3\. Commit your changes \(`git commit -m 'Add some AmazingFeature'`\)
-4\. Push to the branch \(`git push origin feature/AmazingFeature`\)
-5\. Open a Pull Request
 
 ## 📄 License
 
@@ -154,8 +140,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - [Genmo\.ai](https://github.com/genmoai) - For the original Mochi model
-- [Hugging Face Diffusers](https://github.com/huggingface/diffusers) - Foundation for diffusion models
-- [LitServe](https://github.com/Lightning-AI/litserve) - API framework
+- [Hugging Face Diffusers](https://github.com/huggingface/diffusers) 
+- [LitServe](https://github.com/Lightning-AI/litserve)
 
 ---
 
