@@ -37,7 +37,7 @@ class MochiSettings(BaseSettings):
     """
     model_name: str = 'Genmo-Mochi'
     transformer_path: str = "imnotednamode/mochi-1-preview-mix-nf4"
-    pipeline_path: str = "/home/ubuntu/minimochi/src/scripts/weights/converted_models"
+    pipeline_path: str = "VikramSingh178/mochi-diffuser-bf16"
     dtype: torch.dtype = torch.bfloat16
     device: str = "cuda"
     
