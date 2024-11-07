@@ -11,10 +11,29 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from litserve import LitAPI, LitServer
 from loguru import logger
-
+import os, time
+from prometheus_client import CollectorRegistry, Histogram, make_asgi_app, multiprocess
 from configs.mochi_settings import MochiSettings
 from scripts.mochi_diffusers import MochiInference
 from scripts import mp4_to_s3_json
+# Ensure the directory exists
+if not os.path.exists("/tmp/prometheus_multiproc_dir"):
+    os.makedirs("/tmp/prometheus_multiproc_dir")
+
+# Use a multiprocess registry
+registry = CollectorRegistry()
+multiprocess.MultiProcessCollector(registry)
+
+
+
+class PrometheusLogger(ls.Logger):
+    def __init__(self):
+        super().__init__()
+        self.function_duration = Histogram("request_processing_seconds", "Time spent processing request", ["function_name"], registry=registry)
+
+    def process(self, key, value):
+        print("processing", key, value)
+        self.function_duration.labels(function_name=key).observe(value)
 
 class VideoGenerationRequest(BaseModel):
     """
@@ -127,6 +146,7 @@ class MochiVideoAPI(LitAPI):
                     self.engine.generate(**generation_params)
                     
                     end_time = time.time()
+                    self.log("inference_time", end_time - start_time)
                     
                     # Get memory usage
                     allocated, peak = self.engine.get_memory_usage()
@@ -209,7 +229,8 @@ class MochiVideoAPI(LitAPI):
 
 if __name__ == "__main__":
     import sys
-    
+    prometheus_logger = PrometheusLogger()
+    prometheus_logger.mount(path="/metrics", app=make_asgi_app(registry=registry))
     # Configure logging
     logger.remove()
     logger.add(
@@ -224,9 +245,9 @@ if __name__ == "__main__":
         level="DEBUG"
     )
     
-    # Initialize and run server
+
     try:
-        api = MochiVideoAPI()
+        api = MochiVideoAPI(logger=prometheus_logger)
         server = LitServer(
             api,
             api_path='/api/v1/video/mochi',
