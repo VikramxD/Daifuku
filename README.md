@@ -91,7 +91,7 @@ print(response.text)
 | Endpoint | Method | Description | Authentication |
 |----------|--------|-------------|----------------|
 | `/api/v1/video/mochi` | POST | Generate video | Required |
-| `/status` | GET | Service health | Optional |
+| `/health` | GET | Service health | Optional |
 
 ### Configuration Parameters
 
@@ -101,11 +101,11 @@ print(response.text)
 | negative_prompt | str | What to avoid in generation | Optional | - |
 | num_frames | int | Frame count | 60 | 30-120 |
 | fps | int | Frames per second | 30 | 15-60 |
-| height | int | Video height | 480 | 256-1024 |
-| width | int | Video width | 640 | 256-1024 |
+| height | int | Video height | 480 | 256-480 |
+| width | int | Video width | 640 | 256-840 |
 | num_inference_steps | int | Generation quality steps | 50 | 1-100 |
 | guidance_scale | float | Prompt adherence strength | 7\.5 | 1-20 |
-| seed | int | Random seed for reproducibility | None | - |
+
 
 ## 🔧 Advanced Configuration
 
