@@ -92,7 +92,7 @@ print(response.text)
 |----------|--------|-------------|----------------|
 | `/api/v1/video/mochi` | POST | Generate video | Required |
 | `/health` | GET | Service health | Optional |
-
+| `metrics` | GET | Prometheus Metrics | Optional |
 ### Configuration Parameters
 
 | Parameter | Type | Description | Default | Range |
