@@ -32,12 +32,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY DockerFileFolder/ /app/DockerFileFolder/
 COPY src/ /app/src/
 COPY requirements.txt /app/
+COPY pyproject.toml /app/
 
 # Set working directory
 WORKDIR /app
 
 # Install dependencies
 RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip3 install -e . --no-build-isolation
 
 # Create log directory if it doesn't exist
 RUN mkdir -p /app/src/api/logs
