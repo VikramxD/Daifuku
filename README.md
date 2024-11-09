@@ -26,7 +26,7 @@
 
 ```bash
 # Get the code
-git clone [your-repo-url]
+git clone https://github.com/VikramxD/Minimochi
 cd minimochi
 
 # Set up environment
@@ -100,7 +100,7 @@ url = "http://localhost:8000/api/v1/video/mochi"
 payload = {
     "prompt": "A beautiful sunset over the mountains",
     "negative_prompt": "",
-    "num_inference_steps": 30,
+    "num_inference_steps": 100,
     "guidance_scale": 7.5,
     "height": 480,
     "width": 848,
@@ -133,15 +133,9 @@ Prometheus metrics available at `/metrics`:
 | 480x480 | 60 | 16GB |
 | 576x576 | 60 | 20GB |
 | 768x768 | 60 | 24GB |
-| 1024x1024 | 60 | 40GB |
 
-## 🤝 Contributing
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+
 
 ## 📄 License
 
@@ -157,6 +151,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-[Report Bug](https://github.com/your-repo/minimochi/issues) • [Request Feature](https://github.com/your-repo/minimochi/issues)
+[Report Bug](https://github.com/vikramxD/minimochi/issues) • [Request Feature](https://github.com/vikramxD/minimochi/issues)
 
 </div>
