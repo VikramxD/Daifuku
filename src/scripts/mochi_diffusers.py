@@ -171,3 +171,39 @@ class MochiInference:
             logger.info("Clearing CUDA memory cache")
             torch.cuda.empty_cache()
             torch.cuda.reset_peak_memory_stats()
+
+if __name__ == "__main__":
+    from configs.mochi_settings import MochiSettings
+
+    settings = MochiSettings()
+
+    # Initialize inference class
+    mochi_inference = MochiInference(settings)
+
+    # Define prompt and output path
+    prompt = "Close-up of a chameleon's eye, with its scaly skin changing color. Ultra high resolution 4k."
+    output_path = "/home/ubuntu/Minimochi/outputs/output.mp4"
+
+    # Generate video
+    try:
+        video_path = mochi_inference.generate(
+            prompt=prompt,
+            negative_prompt='((((ugly)))), (((duplicate))), ((morbid)), ((mutilated)), out of frame, extra fingers, mutated hands, ((poorly drawn hands)), ((poorly drawn face)), (((mutation))), (((deformed))), ((ugly)), blurry, ((bad anatomy)), (((bad proportions))), ((extra limbs)), cloned face, (((disfigured))), out of frame, ugly, extra limbs, (bad anatomy), gross proportions, (malformed limbs), ((missing arms)), ((missing legs)), (((extra arms))), (((extra legs))), mutated hands, (fused fingers), (too many fingers), (((long neck)))',
+            output_path=output_path,
+            num_inference_steps=30,  
+            guidance_scale=3.5,
+            height=480,
+            width=848,
+            num_frames=150,
+            fps=30,
+        )
+        print(f"Video saved to: {video_path}")
+    except RuntimeError as e:
+        print(f"Failed to generate video: {e}")
+    
+    # Display GPU memory usage for debugging
+    allocated, max_allocated = mochi_inference.get_memory_usage()
+    print(f"Memory usage: {allocated:.2f}GB (peak: {max_allocated:.2f}GB)")
+
+    # Clear memory cache after inference
+    mochi_inference.clear_memory()

@@ -160,7 +160,7 @@ class MochiVideoAPI(LitAPI):
 
                         # Upload to S3
                         with open(temp_video_path, "rb") as video_file:
-                            s3_response = mp4_to_s3_json(video_file, "video.mp4")
+                            s3_response = mp4_to_s3_json(video_file, f"mochi_{int(time.time())}.mp4")
                         
                         result = {
                             "status": "success",
@@ -241,7 +241,7 @@ class MochiVideoAPI(LitAPI):
 if __name__ == "__main__":
     import sys
     prometheus_logger = PrometheusLogger()
-    prometheus_logger.mount(path="/metrics", app=make_asgi_app(registry=registry))
+    prometheus_logger.mount(path="/api/v1/metrics", app=make_asgi_app(registry=registry))
     # Configure logging
     logger.remove()
     logger.add(
@@ -266,7 +266,9 @@ if __name__ == "__main__":
             devices="auto",
             max_batch_size=1,
             track_requests=True,
-            loggers=prometheus_logger
+            loggers=prometheus_logger,
+            generate_client_file=False
+
         )
         logger.info("Starting server on port 8000")
         server.run(port=8000)
