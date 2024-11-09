@@ -38,21 +38,20 @@ class MochiSettings(BaseSettings):
     model_name: str = 'Genmo-Mochi'
     transformer_path: str = "imnotednamode/mochi-1-preview-mix-nf4"
     pipeline_path: str = "VikramSingh178/mochi-diffuser-bf16"
-    dtype: torch.dtype = torch.bfloat16
+    dtype: torch.dtype = torch.float16
     device: str = "cuda"
     
     # Optimization Settings
     enable_vae_tiling: bool = True
     enable_model_cpu_offload: bool = True
-    enable_attention_slicing: bool = False
-    attention_slice_size: Optional[int] = None
+    
     
     # Video Generation Settings
     num_inference_steps: int = 20
     guidance_scale: float = 7.5
-    height: int = 480
-    width: int = 848
-    num_frames: int = 150
+    height: int = 640
+    width: int = 480
+    num_frames: int = 60
     fps: int = 10
     
     class Config:

@@ -7,3 +7,6 @@ wandb
 setuptools
 pydantic-settings
 boto3
+prometheus-client
+loguru
+bitsandbytes
