@@ -1,0 +1,2 @@
+2024-11-23 19:32:34.895 | ERROR    | __main__:main:352 - Server failed to start: LitServer.__init__() got an unexpected keyword argument 'generate_client_file'
+2024-11-23 19:33:20.102 | INFO     | __main__:main:347 - Starting LTX video generation server on port 8000
