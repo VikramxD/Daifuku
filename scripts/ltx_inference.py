@@ -128,7 +128,7 @@ class LTXInference:
 
     def _load_scheduler(self, scheduler_dir: Path):
         """Load and configure the scheduler"""
-        from ltx_video.schedulers.rf import RectifiedFlowScheduler
+        from ltx.ltx_video.schedulers.rf import RectifiedFlowScheduler
         scheduler_config_path = scheduler_dir / "scheduler_config.json"
         scheduler_config = RectifiedFlowScheduler.load_config(scheduler_config_path)
         return RectifiedFlowScheduler.from_config(scheduler_config)
