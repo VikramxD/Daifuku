@@ -103,18 +103,11 @@ class LTXVideoAPI(LitAPI):
         try:
             logger.info(f"Initializing LTX video generation on device: {device}")
             
-            # Initialize settings
-            self.settings = LTXVideoSettings(
-                device=device,
-                ckpt_dir=os.environ.get("LTX_CKPT_DIR", "checkpoints"),
-            )
+            # Initialize settings with device
+            self.settings = LTXVideoSettings(device=device)
             
             # Initialize inference engine
             self.engine = LTXInference(self.settings)
-            
-            # Create output directory
-            self.output_dir = Path("outputs")
-            self.output_dir.mkdir(parents=True, exist_ok=True)
             
             logger.info("LTX setup completed successfully")
             
@@ -193,21 +186,21 @@ class LTXVideoAPI(LitAPI):
                     # Validate request
                     generation_request = VideoGenerationRequest(**request)
                     
+                    # Update settings with request parameters
+                    self.settings.prompt = generation_request.prompt
+                    self.settings.negative_prompt = generation_request.negative_prompt
+                    self.settings.num_inference_steps = generation_request.num_inference_steps
+                    self.settings.guidance_scale = generation_request.guidance_scale
+                    self.settings.height = generation_request.height
+                    self.settings.width = generation_request.width
+                    self.settings.num_frames = generation_request.num_frames
+                    self.settings.frame_rate = generation_request.frame_rate
+                    self.settings.seed = generation_request.seed
+                    
                     # Create temporary directory for output
                     with tempfile.TemporaryDirectory() as temp_dir:
                         temp_video_path = Path(temp_dir) / f"ltx_{int(time.time())}.mp4"
-                        
-                        # Update settings with request parameters
-                        self.settings.prompt = generation_request.prompt
-                        self.settings.negative_prompt = generation_request.negative_prompt
-                        self.settings.num_inference_steps = generation_request.num_inference_steps
-                        self.settings.guidance_scale = generation_request.guidance_scale
-                        self.settings.height = generation_request.height
-                        self.settings.width = generation_request.width
-                        self.settings.num_frames = generation_request.num_frames
-                        self.settings.frame_rate = generation_request.frame_rate
-                        self.settings.seed = generation_request.seed
-                        self.settings.output_path = str(temp_video_path)
+                        self.settings.output_path = temp_video_path
                         
                         # Generate video
                         logger.info(f"Starting generation for prompt: {generation_request.prompt}")
@@ -218,7 +211,10 @@ class LTXVideoAPI(LitAPI):
                         self.log("inference_time", generation_time)
                         
                         # Get memory statistics
-                        memory_stats = self.engine.get_memory_stats()
+                        memory_stats = {
+                            "gpu_allocated": torch.cuda.memory_allocated() if torch.cuda.is_available() else 0,
+                            "gpu_reserved": torch.cuda.memory_reserved() if torch.cuda.is_available() else 0
+                        }
                         
                         # Upload to S3
                         s3_response = mp4_to_s3_json(
@@ -247,9 +243,9 @@ class LTXVideoAPI(LitAPI):
                     })
                     
                 finally:
-                    # Cleanup
-                    if hasattr(self.engine, 'clear_memory'):
-                        self.engine.clear_memory()
+                    # Clear CUDA cache after each generation
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
                     
         except Exception as e:
             logger.error(f"Error in predict method: {e}")

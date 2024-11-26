@@ -48,6 +48,12 @@ class LTXVideoSettings(BaseSettings):
     width: int = Field(704, ge=256, le=1280, description="Width of output video frames")
     num_frames: int = Field(121, ge=1, le=257, description="Number of frames to generate")
     frame_rate: int = Field(25, ge=1, le=60, description="Frame rate of output video")
+    num_images_per_prompt: int = Field(
+        1,
+        ge=1,
+        le=4,
+        description="Number of videos to generate per prompt"
+    )
     
     # Model Settings
     bfloat16: bool = Field(False, description="Use bfloat16 precision")
@@ -159,3 +165,24 @@ class LTXVideoSettings(BaseSettings):
         scheduler_dir = self.ckpt_dir / "scheduler"
         
         return unet_dir, vae_dir, scheduler_dir
+    
+    def get_output_resolution(self) -> tuple[int, int]:
+        """Get the output resolution as a tuple of (height, width)."""
+        return (self.height, self.width)
+    
+    def get_padded_num_frames(self) -> int:
+        """
+        Calculate the padded number of frames.
+        Ensures the number of frames is compatible with model requirements.
+        """
+        # Common video models often require frame counts to be multiples of 8
+        FRAME_PADDING = 8
+        
+        # Calculate padding needed to reach next multiple of FRAME_PADDING
+        remainder = self.num_frames % FRAME_PADDING
+        if remainder == 0:
+            return self.num_frames
+            
+        padding_needed = FRAME_PADDING - remainder
+        return self.num_frames + padding_needed
+    
