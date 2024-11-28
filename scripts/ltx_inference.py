@@ -37,12 +37,7 @@ class LTXInference:
     """
     
     def __init__(self, config: LTXVideoSettings):
-        """
-        Initialize the inference pipeline with given configuration.
-        
-        Args:
-            config: LTXVideoSettings configuration object
-        """
+        """Initialize with settings"""
         self.config = config
         self.setup_random_seeds()
         self.pipeline = self._initialize_pipeline()
@@ -86,7 +81,7 @@ class LTXInference:
         return transformer
 
     def _initialize_pipeline(self) -> LTXVideoPipeline:
-        """Initialize the complete LTX pipeline with all components"""
+        """Initialize pipeline with all components"""
         unet_dir, vae_dir, scheduler_dir = self.config.get_model_paths()
         
         # Load models
@@ -95,7 +90,7 @@ class LTXInference:
         scheduler = self._load_scheduler(scheduler_dir)
         patchifier = SymmetricPatchifier(patch_size=1)
         
-        # Load text encoder and tokenizer
+        # Load text encoder and tokenizer from PixArt
         text_encoder = T5EncoderModel.from_pretrained(
             "PixArt-alpha/PixArt-XL-2-1024-MS", 
             subfolder="text_encoder"
@@ -111,7 +106,7 @@ class LTXInference:
         if self.config.bfloat16 and unet.dtype != torch.bfloat16:
             unet = unet.to(torch.bfloat16)
 
-        # Initialize pipeline with all components
+        # Initialize pipeline
         pipeline = LTXVideoPipeline(
             transformer=unet,
             patchifier=patchifier,
@@ -165,35 +160,41 @@ class LTXInference:
         return frame_tensor.unsqueeze(0).unsqueeze(2)
 
     def generate(self) -> None:
-        """Run the main generation pipeline"""
+        """Run generation pipeline"""
         # Load input image if provided
         media_items_prepad = self.load_input_image()
         
-        # Calculate dimensions
-        height_padded, width_padded = self.config.get_output_resolution()
-        num_frames_padded = self.config.get_padded_num_frames()
+        # Calculate dimensions with padding
+        height = self.config.height
+        width = self.config.width
+        num_frames = self.config.num_frames
         
-        logger.info(f"Generating with dimensions: {height_padded}x{width_padded}x{num_frames_padded}")
+        # Validate dimensions
+        if height > self.config.MAX_HEIGHT or width > self.config.MAX_WIDTH or num_frames > self.config.MAX_NUM_FRAMES:
+            logger.warning(
+                f"Input resolution or number of frames {height}x{width}x{num_frames} is too big, "
+                f"it is suggested to use the resolution below {self.config.MAX_HEIGHT}x{self.config.MAX_WIDTH}x{self.config.MAX_NUM_FRAMES}."
+            )
+
+        # Adjust dimensions to be divisible by 32 and num_frames to be (N * 8 + 1)
+        height_padded = ((height - 1) // 32 + 1) * 32
+        width_padded = ((width - 1) // 32 + 1) * 32
+        num_frames_padded = ((num_frames - 2) // 8 + 1) * 8 + 1
         
-        # Calculate padding
-        padding = self._calculate_padding(
-            self.config.height, 
-            self.config.width, 
-            height_padded, 
-            width_padded
-        )
+        logger.info(f"Padded dimensions: {height_padded}x{width_padded}x{num_frames_padded}")
         
-        # Pad input media if present
+        # Calculate and apply padding
+        padding = self._calculate_padding(height, width, height_padded, width_padded)
         if media_items_prepad is not None:
             media_items = F.pad(media_items_prepad, padding, mode="constant", value=-1)
         else:
             media_items = None
 
-        # Prepare generation parameters
+        # Set up generator
         generator = torch.Generator(
             device="cuda" if torch.cuda.is_available() else "cpu"
         ).manual_seed(self.config.seed)
-        
+
         # Run pipeline
         images = self.pipeline(
             prompt=self.config.prompt,

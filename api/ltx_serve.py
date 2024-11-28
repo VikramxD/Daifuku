@@ -20,7 +20,8 @@ from prometheus_client import (
 
 from configs.ltx_settings import LTXVideoSettings
 from scripts.ltx_inference import LTXInference
-from scripts import mp4_to_s3_json 
+from scripts.mp4_to_s3_json import mp4_to_s3_json 
+import torch
 
 # Set up prometheus multiprocess mode
 os.environ["PROMETHEUS_MULTIPROC_DIR"] = "/tmp/prometheus_multiproc_dir"
@@ -206,6 +207,20 @@ class LTXVideoAPI(LitAPI):
                         logger.info(f"Starting generation for prompt: {generation_request.prompt}")
                         self.engine.generate()
                         
+                        # Verify file exists and is readable before uploading
+                        if not temp_video_path.exists():
+                            raise FileNotFoundError(f"Generated video file not found at {temp_video_path}")
+                        
+                        if not os.access(temp_video_path, os.R_OK):
+                            raise PermissionError(f"Generated video file is not readable at {temp_video_path}")
+                        
+                        # Upload to S3 with explicit file opening
+                        with open(temp_video_path, 'rb') as video_file:
+                            s3_response = mp4_to_s3_json(
+                                video_file,
+                                f"ltx_{int(time.time())}.mp4"
+                            )
+                        
                         end_time = time.time()
                         generation_time = end_time - start_time
                         self.log("inference_time", generation_time)
@@ -215,12 +230,6 @@ class LTXVideoAPI(LitAPI):
                             "gpu_allocated": torch.cuda.memory_allocated() if torch.cuda.is_available() else 0,
                             "gpu_reserved": torch.cuda.memory_reserved() if torch.cuda.is_available() else 0
                         }
-                        
-                        # Upload to S3
-                        s3_response = mp4_to_s3_json(
-                            temp_video_path,
-                            f"ltx_{int(time.time())}.mp4"
-                        )
                         
                         result = {
                             "status": "success",
@@ -236,10 +245,12 @@ class LTXVideoAPI(LitAPI):
                         logger.info(f"Generation completed successfully")
                         
                 except Exception as e:
-                    logger.error(f"Error in generation: {e}")
+                    import traceback
+                    logger.error(f"Error in generation: {e}\n{traceback.format_exc()}")
                     results.append({
                         "status": "error",
-                        "error": str(e)
+                        "error": str(e),
+                        "traceback": traceback.format_exc()
                     })
                     
                 finally:
@@ -248,10 +259,12 @@ class LTXVideoAPI(LitAPI):
                         torch.cuda.empty_cache()
                     
         except Exception as e:
-            logger.error(f"Error in predict method: {e}")
+            import traceback
+            logger.error(f"Error in predict method: {e}\n{traceback.format_exc()}")
             results.append({
                 "status": "error",
-                "error": str(e)
+                "error": str(e),
+                "traceback": traceback.format_exc()
             })
             
         return results if results else [{"status": "error", "error": "No results generated"}]
