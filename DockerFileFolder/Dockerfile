@@ -30,7 +30,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy everything from DockerFileFolder and the rest of the directory structure
 COPY DockerFileFolder/ /app/DockerFileFolder/
-COPY src/ /app/src/
+COPY . /app
 COPY requirements.txt /app/
 COPY pyproject.toml /app/
 
