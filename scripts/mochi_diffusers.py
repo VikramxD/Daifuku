@@ -1,6 +1,6 @@
 """
 Inference class for Mochi video generation model.
-Tested on A6000 
+Tested on A6000 /A40 / A100 
 Generates Video for 20 inference steps at 480 resolution in 10 minutes
 """
 
@@ -8,10 +8,11 @@ from pathlib import Path
 from typing import Optional, Union, List, Tuple
 import torch
 from loguru import logger
-from diffusers import MochiPipeline, MochiTransformer3DModel
+from diffusers import MochiPipeline, MochiTransformer3DModel, AutoencoderKLMochi
 from diffusers.utils import export_to_video
-
+from diffusers.video_processor import VideoProcessor
 from configs.mochi_settings import MochiSettings
+import gc
 
 class MochiInference:
     """
@@ -112,39 +113,85 @@ class MochiInference:
         Raises:
             RuntimeError: If video generation fails.
         """
+        logger.info("Starting video generation for prompt: {}", prompt)
         try:
             # Set random seed if provided
             if seed is not None:
                 logger.info("Setting random seed to {}", seed)
                 torch.manual_seed(seed)
                 
-            # Build generation parameters
-            params = {
-                "prompt": prompt,
-                "negative_prompt": negative_prompt,
-                "num_inference_steps": num_inference_steps or self.settings.num_inference_steps,
-                "guidance_scale": guidance_scale or self.settings.guidance_scale,
-                "height": height or self.settings.height,
-                "width": width or self.settings.width,
-                "num_frames": num_frames or self.settings.num_frames,
-            }
+            # Encode prompt first and free text encoder memory
+            with torch.no_grad():
+                logger.debug("Encoding prompt")
+                prompt_embeds, prompt_attention_mask, negative_prompt_embeds, negative_prompt_attention_mask = (
+                    self.pipe.encode_prompt(prompt=prompt)
+                )
             
-            logger.info("Generating video with prompt: {}", prompt)
-            logger.debug("Generation parameters: {}", params)
+            logger.debug("Freeing text encoder memory")
+            del self.pipe.text_encoder
+            gc.collect()
             
-            frames = self.pipe(**params).frames[0]
+            # Generate latents
+            logger.debug("Generating latents")
+            with torch.autocast("cuda", dtype=torch.bfloat16):
+                frames = self.pipe(
+                    prompt_embeds=prompt_embeds,
+                    prompt_attention_mask=prompt_attention_mask,
+                    negative_prompt_embeds=negative_prompt_embeds,
+                    negative_prompt_attention_mask=negative_prompt_attention_mask,
+                    guidance_scale=guidance_scale or self.settings.guidance_scale,
+                    num_inference_steps=num_inference_steps or self.settings.num_inference_steps,
+                    height=height or self.settings.height,
+                    width=width or self.settings.width,
+                    num_frames=num_frames or self.settings.num_frames,
+                    output_type="latent",
+                    return_dict=False,
+                )[0]
+
+            logger.debug("Freeing transformer memory")
+            del self.pipe.transformer
+            gc.collect()
+
+            # Setup VAE and process latents
+            logger.debug("Loading VAE model")
+            vae = AutoencoderKLMochi.from_pretrained(
+                self.settings.pipeline_path, 
+                subfolder="vae"
+            ).to(self.settings.device)
+            vae._enable_framewise_decoding()
             
+            # Scale latents appropriately
+            logger.debug("Scaling latents")
+            if hasattr(vae.config, "latents_mean") and hasattr(vae.config, "latents_std"):
+                latents_mean = torch.tensor(vae.config.latents_mean).view(1, 12, 1, 1, 1).to(frames.device, frames.dtype)
+                latents_std = torch.tensor(vae.config.latents_std).view(1, 12, 1, 1, 1).to(frames.device, frames.dtype)
+                frames = frames * latents_std / vae.config.scaling_factor + latents_mean
+            else:
+                frames = frames / vae.config.scaling_factor
+
+            # Decode frames
+            logger.debug("Decoding frames")
+            with torch.no_grad():
+                video = vae.decode(frames.to(vae.dtype), return_dict=False)[0]
+
+            logger.debug("Post-processing video")
+            video_processor = VideoProcessor(vae_scale_factor=8)
+            video = video_processor.postprocess_video(video)[0]
+
+            # Save or return video
             if output_path:
+                logger.info("Saving video to {}", output_path)
                 output_path = Path(output_path)
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 
                 fps = fps or self.settings.fps
-                export_to_video(frames, str(output_path), fps=fps)
+                export_to_video(video, str(output_path), fps=fps)
                 logger.success("Video saved to: {}", output_path)
                 return str(output_path)
             
-            return export_to_video(frames[0])
-            
+            logger.success("Video generation completed successfully")
+            return video
+
         except Exception as e:
             logger.exception("Video generation failed")
             raise RuntimeError(f"Video generation failed: {str(e)}") from e
@@ -200,10 +247,6 @@ if __name__ == "__main__":
         print(f"Video saved to: {video_path}")
     except RuntimeError as e:
         print(f"Failed to generate video: {e}")
-    
-    # Display GPU memory usage for debugging
     allocated, max_allocated = mochi_inference.get_memory_usage()
     print(f"Memory usage: {allocated:.2f}GB (peak: {max_allocated:.2f}GB)")
-
-    # Clear memory cache after inference
     mochi_inference.clear_memory()

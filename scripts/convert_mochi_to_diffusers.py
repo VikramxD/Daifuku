@@ -1,3 +1,23 @@
+"""
+Mochi Model Checkpoint Converter
+
+This script converts Mochi model checkpoints from their original format to the Diffusers format.
+It handles three main components:
+1. The transformer model
+2. The VAE (encoder and decoder)
+3. The text encoder (T5)
+
+The script provides utility functions to:
+- Convert state dict keys between formats
+- Handle weight transformations and reshaping
+- Create and save a complete Diffusers pipeline
+
+Usage:
+    python convert_mochi_to_diffusers.py
+
+Configuration is handled via the MochiWeightsSettings class (see configs/mochi_weights.py)
+"""
+
 from contextlib import nullcontext
 import torch
 from accelerate import init_empty_weights
@@ -10,24 +30,55 @@ from configs.mochi_weights import MochiWeightsSettings
 CTX = init_empty_weights if is_accelerate_available else nullcontext
 
 def swap_scale_shift(weight, dim):
+    """
+    Swaps the order of scale and shift parameters in normalization layers.
+    
+    Args:
+        weight (torch.Tensor): Input tensor containing scale and shift parameters
+        dim (int): Dimension along which to split the parameters
+        
+    Returns:
+        torch.Tensor: Reordered tensor with scale parameters first, then shift parameters
+    """
     shift, scale = weight.chunk(2, dim=0)
     new_weight = torch.cat([scale, shift], dim=0)
     return new_weight
 
 def swap_proj_gate(weight):
+    """
+    Swaps projection and gate weights in attention mechanisms.
+    
+    Args:
+        weight (torch.Tensor): Input tensor containing projection and gate weights
+        
+    Returns:
+        torch.Tensor: Reordered tensor with gate weights first, then projection weights
+    """
     proj, gate = weight.chunk(2, dim=0)
     new_weight = torch.cat([gate, proj], dim=0)
     return new_weight
 
 def convert_mochi_transformer_checkpoint_to_diffusers(ckpt_path):
+    """
+    Converts a Mochi transformer checkpoint to the Diffusers format.
+    
+    This function handles the conversion of:
+    - Embedding layers
+    - Transformer blocks
+    - Attention mechanisms
+    - Normalization layers
+    - Output projections
+    
+    Args:
+        ckpt_path (str): Path to the original Mochi checkpoint file
+        
+    Returns:
+        dict: State dictionary in Diffusers format
+    """
     original_state_dict = load_file(ckpt_path, device="cpu")
     new_state_dict = {}
-
-    # Convert patch_embed
     new_state_dict["patch_embed.proj.weight"] = original_state_dict.pop("x_embedder.proj.weight")
     new_state_dict["patch_embed.proj.bias"] = original_state_dict.pop("x_embedder.proj.bias")
-
-    # Convert time_embed
     new_state_dict["time_embed.timestep_embedder.linear_1.weight"] = original_state_dict.pop("t_embedder.mlp.0.weight")
     new_state_dict["time_embed.timestep_embedder.linear_1.bias"] = original_state_dict.pop("t_embedder.mlp.0.bias")
     new_state_dict["time_embed.timestep_embedder.linear_2.weight"] = original_state_dict.pop("t_embedder.mlp.2.weight")
@@ -122,9 +173,24 @@ def convert_mochi_transformer_checkpoint_to_diffusers(ckpt_path):
 
     return new_state_dict
 
-
-
 def convert_mochi_vae_state_dict_to_diffusers(encoder_ckpt_path, decoder_ckpt_path):
+    """
+    Converts Mochi VAE encoder and decoder checkpoints to the Diffusers format.
+    
+    This function handles:
+    - Input/output projections
+    - ResNet blocks
+    - Up/down sampling blocks
+    - Attention layers
+    - Normalization layers
+    
+    Args:
+        encoder_ckpt_path (str): Path to the VAE encoder checkpoint
+        decoder_ckpt_path (str): Path to the VAE decoder checkpoint
+        
+    Returns:
+        dict: Combined state dictionary for both encoder and decoder in Diffusers format
+    """
     encoder_state_dict = load_file(encoder_ckpt_path, device="cpu")
     decoder_state_dict = load_file(decoder_ckpt_path, device="cpu")
     new_state_dict = {}
@@ -362,6 +428,29 @@ def convert_mochi_vae_state_dict_to_diffusers(encoder_ckpt_path, decoder_ckpt_pa
     return new_state_dict
 
 def main(settings: MochiWeightsSettings = MochiWeightsSettings()):
+    """
+    Main execution function that orchestrates the conversion process.
+    
+    This function:
+    1. Configures the computation dtype (fp16, bf16, or fp32)
+    2. Converts the transformer model if a checkpoint is provided
+    3. Converts the VAE if encoder/decoder checkpoints are provided
+    4. Loads the T5 text encoder and tokenizer
+    5. Creates and saves a complete Diffusers pipeline
+    
+    Args:
+        settings (MochiWeightsSettings): Configuration object containing paths and options
+            - dtype: Computation precision ("fp16", "bf16", "fp32", or None)
+            - transformer_checkpoint_path: Path to transformer checkpoint
+            - vae_encoder_checkpoint_path: Path to VAE encoder checkpoint
+            - vae_decoder_checkpoint_path: Path to VAE decoder checkpoint
+            - text_encoder_cache_dir: Cache directory for T5 model
+            - output_path: Where to save the converted pipeline
+            - push_to_hub: Whether to push the converted model to HuggingFace Hub
+    
+    Raises:
+        ValueError: If an unsupported dtype is specified
+    """
     if settings.dtype is None:
         dtype = None
     elif settings.dtype == "fp16":
