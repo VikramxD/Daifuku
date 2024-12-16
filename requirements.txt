@@ -10,3 +10,4 @@ boto3
 prometheus-client
 loguru
 bitsandbytes
+imageio

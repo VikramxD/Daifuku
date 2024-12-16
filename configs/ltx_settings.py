@@ -64,6 +64,7 @@ class LTXVideoSettings(BaseSettings):
         device (str): Device for inference ('cuda' or 'cpu')
         prompt (Optional[str]): Generation prompt text
         negative_prompt (str): Negative prompt for undesired features
+        model_revision (str): Specific model revision to use for stability
 
     Example:
         >>> settings = LTXVideoSettings(
@@ -81,7 +82,7 @@ class LTXVideoSettings(BaseSettings):
         description="HuggingFace model ID"
     )
     ckpt_dir: Path = Field(
-        default_factory=lambda: Path(os.getenv('LTX_CKPT_DIR', 'checkpoints')),
+        default_factory=lambda: Path(os.getenv('LTX_CKPT_DIR', '../checkpoints')),
         description="Directory containing model checkpoints"
     )
     use_auth_token: Optional[str] = Field(
@@ -137,6 +138,12 @@ class LTXVideoSettings(BaseSettings):
     MAX_WIDTH: int = 1280
     MAX_NUM_FRAMES: int = 257
 
+    # Add model revision to ensure stable downloads
+    model_revision: str = Field(
+        default="f1994f6731091f828ecc135923c978155928c031",
+        description="Specific model revision to use for stability"
+    )
+
     def download_model(self) -> Path:
         """
         Download model from HuggingFace Hub if not already present.
@@ -168,10 +175,11 @@ class LTXVideoSettings(BaseSettings):
             # Create checkpoint directory if it doesn't exist
             self.ckpt_dir.mkdir(parents=True, exist_ok=True)
             
-            # Download model from HuggingFace
-            logger.info(f"Downloading model {self.model_id} to {self.ckpt_dir}")
+            # Download model from HuggingFace with specific revision
+            logger.info(f"Downloading model {self.model_id} (revision: {self.model_revision}) to {self.ckpt_dir}")
             snapshot_download(
                 repo_id=self.model_id,
+                revision=self.model_revision,  # Use specific working revision
                 local_dir=self.ckpt_dir,
                 local_dir_use_symlinks=False,
                 repo_type='model',
