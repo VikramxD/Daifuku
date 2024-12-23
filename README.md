@@ -53,7 +53,6 @@
 - Easy Docker-based deployment.
 - Integrated monitoring and logging.
 
-Whether you're a developer or researcher, Daifuku is your go-to solution for scalable and efficient T2V workflows.
 
 ---
 
