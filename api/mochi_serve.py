@@ -134,12 +134,7 @@ class MochiVideoAPI(LitAPI):
         Raises:
             RuntimeError: On initialization failure
         """
-        self.settings = MochiSettings(
-            model_name="Mini-Mochi",
-            enable_vae_tiling=True,
-            enable_attention_slicing=True,
-            device=device
-        )
+        self.settings = MochiSettings()
         
         logger.info("Initializing Mochi inference engine")
         self.engine = MochiInference(self.settings)
