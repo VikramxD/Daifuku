@@ -5,7 +5,9 @@
 
 
 <div align="center">
-  <img src = https://github.com/user-attachments/assets/ef233ca4-275a-4817-9042-60e53045821e width=250, height=250)>
+  <img src = https://github.com/user-attachments/assets/ef233ca4-275a-4817-9042-60e53045821e width=250, height=250)></img>
+  <p> </p>
+  
   <pre>
      ✅ Multi-model T2V                 ✅ GPU offload & BF16
      ✅ Parallel batch processing       ✅ Prometheus metrics
