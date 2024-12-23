@@ -270,4 +270,5 @@ Endpoints:
 ## License
 
 Daifuku is licensed under the [MIT License](./LICENSE).
+<img src="https://api.star-history.com/svg?repos=vikramxD/Daifuku&type=Date" alt="Star History Chart">
 
