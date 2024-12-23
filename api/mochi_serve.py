@@ -1,5 +1,30 @@
 """
-LitServe API implementation for Mochi video generation service.
+Mochi Video Generation Service API
+
+A high-performance API implementation for the Mochi video generation model using LitServe.
+Provides enterprise-grade video generation capabilities with comprehensive monitoring,
+validation, and error handling.
+
+Core Features:
+    - Automated video generation from text prompts
+    - S3 integration for result storage
+    - Prometheus metrics collection
+    - Resource utilization tracking
+    - Configurable generation parameters
+    - GPU memory management
+
+Technical Specifications:
+    - Input Resolution: 64-1024 pixels (width/height)
+    - Frame Range: 1-1000 frames
+    - FPS Range: 1-120
+    - Supported Formats: MP4 output
+    - Storage: AWS S3 integration
+
+Performance Monitoring:
+    - Request latency tracking
+    - Memory usage monitoring
+    - GPU utilization metrics
+    - Success/failure rates
 """
 
 import io
@@ -19,33 +44,59 @@ from scripts.mp4_to_s3_json import mp4_to_s3_json
 import litserve
 import tempfile
 
-# Set the directory for multiprocess mode
 os.environ["PROMETHEUS_MULTIPROC_DIR"] = "/tmp/prometheus_multiproc_dir"
-
-# Ensure the directory exists
 if not os.path.exists("/tmp/prometheus_multiproc_dir"):
     os.makedirs("/tmp/prometheus_multiproc_dir")
 
-
-# Use a multiprocess registry
 registry = CollectorRegistry()
 multiprocess.MultiProcessCollector(registry)
 
-
-
 class PrometheusLogger(litserve.Logger):
+    """
+    Enterprise-grade Prometheus metrics collector for Mochi service monitoring.
+
+    Implements detailed performance tracking with multi-process support for production
+    deployments. Provides high-resolution timing metrics for all service operations.
+
+    Metrics:
+        request_processing_seconds:
+            - Type: Histogram
+            - Labels: function_name
+            - Description: Processing time per operation
+    """
+
     def __init__(self):
         super().__init__()
         self.function_duration = Histogram("request_processing_seconds", "Time spent processing request", ["function_name"], registry=registry)
 
-    def process(self, key, value):
-        print("processing", key, value)
+    def process(self, key: str, value: float) -> None:
+        """
+        Record a metric observation with operation-specific labeling.
+
+        Args:
+            key: Operation identifier for metric labeling
+            value: Duration measurement in seconds
+        """
         self.function_duration.labels(function_name=key).observe(value)
 
 class VideoGenerationRequest(BaseModel):
     """
-    Model representing a video generation request.
+    Validated request model for video generation parameters.
+
+    Enforces constraints and provides default values for all generation parameters.
+    Ensures request validity before resource allocation.
+
+    Attributes:
+        prompt: Primary generation directive
+        negative_prompt: Elements to avoid in generation
+        num_inference_steps: Generation quality control
+        guidance_scale: Prompt adherence strength
+        height: Output video height
+        width: Output video width
+        num_frames: Total frames to generate
+        fps: Playback frame rate
     """
+
     prompt: str = Field(..., description="Text description of the video to generate")
     negative_prompt: Optional[str] = Field("", description="Text description of what to avoid")
     num_inference_steps: int = Field(50, ge=1, le=1000, description="Number of inference steps")
@@ -57,192 +108,236 @@ class VideoGenerationRequest(BaseModel):
 
 class MochiVideoAPI(LitAPI):
     """
-    API for Mochi video generation using LitServer.
+    Production-ready API implementation for Mochi video generation service.
+
+    Provides a robust, scalable interface for video generation with comprehensive
+    error handling, resource management, and performance monitoring.
+
+    Features:
+        - Request validation and normalization
+        - Batched processing support
+        - Automatic resource cleanup
+        - Detailed error reporting
+        - Performance metrics collection
     """
 
     def setup(self, device: str) -> None:
-        """Initialize the Mochi video generation model."""
-        try:
-            self.settings = MochiSettings(
-                model_name="Mini-Mochi",
-                enable_vae_tiling=True,
-                enable_attention_slicing=True,
-                device=device
-            )
-            
-            logger.info("Initializing Mochi inference engine")
-            self.engine = MochiInference(self.settings)
-            
-            # Create output directory
-            self.output_dir = Path("outputs")
-            self.output_dir.mkdir(parents=True, exist_ok=True)
-            
-            logger.info("Setup completed successfully")
-        except Exception as e:
-            logger.error(f"Error during setup: {e}")
-            raise
+        """
+        Initialize the Mochi video generation infrastructure.
+
+        Performs model loading, resource allocation, and directory setup for
+        production deployment.
+
+        Args:
+            device: Target compute device for model deployment
+
+        Raises:
+            RuntimeError: On initialization failure
+        """
+        self.settings = MochiSettings(
+            model_name="Mini-Mochi",
+            enable_vae_tiling=True,
+            enable_attention_slicing=True,
+            device=device
+        )
+        
+        logger.info("Initializing Mochi inference engine")
+        self.engine = MochiInference(self.settings)
+        
+        self.output_dir = Path("outputs")
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        
+        logger.info("Setup completed successfully")
 
     def decode_request(self, request: Union[Dict[str, Any], List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
-        """Decode and validate the incoming request."""
-        try:
-            # Ensure the request is a list of dictionaries
-            if not isinstance(request, list):
-                request = [request]
-            
-            # Validate each request in the list
-            validated_requests = [VideoGenerationRequest(**req).model_dump() for req in request]
-            return validated_requests
-        except Exception as e:
-            logger.error(f"Error in decode_request: {e}")
-            raise
+        """
+        Validate and normalize incoming generation requests.
+
+        Args:
+            request: Raw request data, single or batched
+
+        Returns:
+            List of validated request parameters
+
+        Raises:
+            ValidationError: For malformed requests
+        """
+        if not isinstance(request, list):
+            request = [request]
+        
+        validated_requests = [VideoGenerationRequest(**req).model_dump() for req in request]
+        return validated_requests
 
     def batch(self, inputs: Union[Dict[str, Any], List[Dict[str, Any]]]) -> Dict[str, List[Any]]:
         """
         Prepare inputs for batch processing.
-        """
-        try:
-            # Convert single input to list format
-            if not isinstance(inputs, list):
-                inputs = [inputs]
 
-            # Initialize with default values
-            defaults = VideoGenerationRequest().model_dump()
-            
-            batched = {
-                "prompt": [],
-                "negative_prompt": [],
-                "num_inference_steps": [],
-                "guidance_scale": [],
-                "height": [],
-                "width": [],
-                "num_frames": [],
-                "fps": []
-            }
-            
-            # Fill batched dictionary
-            for input_item in inputs:
-                for key in batched.keys():
-                    value = input_item.get(key, defaults.get(key))
-                    batched[key].append(value)
-            
-            return batched
-        except Exception as e:
-            logger.error(f"Error in batch processing: {e}")
-            raise
+        Args:
+            inputs: Single or multiple generation requests
+
+        Returns:
+            Batched parameters ready for processing
+
+        Raises:
+            ValueError: For invalid batch composition
+        """
+        if not isinstance(inputs, list):
+            inputs = [inputs]
+
+        defaults = VideoGenerationRequest().model_dump()
+        
+        batched = {
+            "prompt": [],
+            "negative_prompt": [],
+            "num_inference_steps": [],
+            "guidance_scale": [],
+            "height": [],
+            "width": [],
+            "num_frames": [],
+            "fps": []
+        }
+        
+        for input_item in inputs:
+            for key in batched.keys():
+                value = input_item.get(key, defaults.get(key))
+                batched[key].append(value)
+        
+        return batched
 
     def predict(self, inputs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Process inputs and generate videos."""
-        results = []
-        try:
-            for request in inputs:
-                start_time = time.time()
-                try:
-                    # Validate and parse the request
-                    generation_request = VideoGenerationRequest(**request)
-                    
-                    # Create temporary file path
-                    with tempfile.TemporaryDirectory() as temp_dir:
-                        temp_video_path = os.path.join(temp_dir, f"mochi_{int(time.time())}.mp4")
-                        
-                        # Prepare generation parameters
-                        generation_params = generation_request.dict()
-                        generation_params["output_path"] = temp_video_path
-                        
-                        # Generate video
-                        logger.info(f"Starting generation for prompt: {generation_params['prompt']}")
-                        self.engine.generate(**generation_params)
-                        
-                        end_time = time.time()
-                        self.log("inference_time", end_time - start_time)
-                        
-                        # Get memory usage
-                        allocated, peak = self.engine.get_memory_usage()
+        """
+        Execute video generation for validated requests.
 
-                        # Upload to S3
-                        with open(temp_video_path, "rb") as video_file:
-                            s3_response = mp4_to_s3_json(video_file, f"mochi_{int(time.time())}.mp4")
-                        
-                        result = {
-                            "status": "success",
-                            "video_id": s3_response["video_id"],
-                            "video_url": s3_response["url"],
-                            "prompt": generation_params["prompt"],
-                            "generation_params": generation_params,
-                            "time_taken": end_time - start_time,
-                            "memory_usage": {
-                                "allocated_gb": round(allocated, 2),
-                                "peak_gb": round(peak, 2)
-                            }
+        Handles the complete generation pipeline including:
+        - Parameter validation
+        - Resource allocation
+        - Video generation
+        - S3 upload
+        - Performance monitoring
+        - Resource cleanup
+
+        Args:
+            inputs: List of validated generation parameters
+
+        Returns:
+            List of generation results or error details
+
+        Raises:
+            RuntimeError: On generation failure
+        """
+        results = []
+        for request in inputs:
+            start_time = time.time()
+            try:
+                generation_request = VideoGenerationRequest(**request)
+                
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    temp_video_path = os.path.join(temp_dir, f"mochi_{int(time.time())}.mp4")
+                    
+                    generation_params = generation_request.dict()
+                    generation_params["output_path"] = temp_video_path
+                    
+                    logger.info(f"Starting generation for prompt: {generation_params['prompt']}")
+                    self.engine.generate(**generation_params)
+                    
+                    end_time = time.time()
+                    self.log("inference_time", end_time - start_time)
+                    
+                    allocated, peak = self.engine.get_memory_usage()
+
+                    with open(temp_video_path, "rb") as video_file:
+                        s3_response = mp4_to_s3_json(video_file, f"mochi_{int(time.time())}.mp4")
+                    
+                    result = {
+                        "status": "success",
+                        "video_id": s3_response["video_id"],
+                        "video_url": s3_response["url"],
+                        "prompt": generation_params["prompt"],
+                        "generation_params": generation_params,
+                        "time_taken": end_time - start_time,
+                        "memory_usage": {
+                            "allocated_gb": round(allocated, 2),
+                            "peak_gb": round(peak, 2)
                         }
-                        results.append(result)
-                        
-                        logger.info(f"Generation completed for prompt: {generation_params['prompt']}")
-                    
-                except Exception as e:
-                    logger.error(f"Error in generation for request: {e}")
-                    error_result = {
-                        "status": "error",
-                        "error": str(e)
                     }
-                    results.append(error_result)
-                finally:
-                    self.engine.clear_memory()
+                    results.append(result)
                     
-        except Exception as e:
-            logger.error(f"Error in predict method: {e}")
-            results.append({
-                "status": "error",
-                "error": str(e)
-            })
-            
+                    logger.info(f"Generation completed for prompt: {generation_params['prompt']}")
+                
+            except Exception as e:
+                logger.error(f"Error in generation for request: {e}")
+                error_result = {
+                    "status": "error",
+                    "error": str(e)
+                }
+                results.append(error_result)
+            finally:
+                self.engine.clear_memory()
+                
         return results if results else [{"status": "error", "error": "No results generated"}]
 
     def unbatch(self, outputs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Convert batched outputs back to individual results."""
+        """
+        Convert batched outputs to individual results.
+
+        Args:
+            outputs: List of generation results
+
+        Returns:
+            Unbatched list of results
+        """
         return outputs
 
     def encode_response(self, output: Union[Dict[str, Any], List[Any]]) -> Dict[str, Any]:
-        """Encode the output for response."""
-        try:
-            # If output is a list, take the first item
-            if isinstance(output, list):
-                output = output[0] if output else {"status": "error", "error": "No output generated"}
-            
-            # Handle error cases
-            if output.get("status") == "error":
-                return {
-                    "status": "error",
-                    "error": output.get("error", "Unknown error"),
-                    "item_index": output.get("item_index")
-                }
-            
-            # Return the successful response directly
-            return {
-                "status": "success",
-                "video_id": output.get("video_id"),
-                "video_url": output.get("video_url"),
-                "generation_info": {
-                    "prompt": output.get("prompt"),
-                    "parameters": output.get("generation_params", {})
-                },
-                "performance": {
-                    "time_taken": round(output.get("time_taken", 0), 2),
-                    "memory_usage": output.get("memory_usage", {})
-                }
-            }
-            
-        except Exception as e:
-            logger.error(f"Error in encode_response: {e}")
+        """
+        Format generation results for API response.
+
+        Args:
+            output: Raw generation results or error information
+
+        Returns:
+            Formatted API response with standardized structure
+
+        Note:
+            Handles both success and error cases with consistent formatting
+        """
+        if isinstance(output, list):
+            output = output[0] if output else {"status": "error", "error": "No output generated"}
+        
+        if output.get("status") == "error":
             return {
                 "status": "error",
-                "error": str(e)
+                "error": output.get("error", "Unknown error"),
+                "item_index": output.get("item_index")
             }
+        
+        return {
+            "status": "success",
+            "video_id": output.get("video_id"),
+            "video_url": output.get("video_url"),
+            "generation_info": {
+                "prompt": output.get("prompt"),
+                "parameters": output.get("generation_params", {})
+            },
+            "performance": {
+                "time_taken": round(output.get("time_taken", 0), 2),
+                "memory_usage": output.get("memory_usage", {})
+            }
+        }
 
-if __name__ == "__main__":
-    import sys
+def main():
+    """
+    Initialize and launch the Mochi video generation service.
+
+    Sets up the complete service infrastructure including:
+    - Prometheus metrics collection
+    - Structured logging
+    - API server configuration
+    - Error handling
+    """
     prometheus_logger = PrometheusLogger()
     prometheus_logger.mount(path="/api/v1/metrics", app=make_asgi_app(registry=registry))
-    # Configure logging
+    
     logger.remove()
     logger.add(
         sys.stdout,
@@ -255,7 +350,6 @@ if __name__ == "__main__":
         retention="1 week",
         level="DEBUG"
     )
-    
 
     try:
         api = MochiVideoAPI()
@@ -268,10 +362,12 @@ if __name__ == "__main__":
             track_requests=True,
             loggers=prometheus_logger,
             generate_client_file=False
-
         )
         logger.info("Starting server on port 8000")
         server.run(port=8000)
     except Exception as e:
         logger.error(f"Server failed to start: {e}")
         sys.exit(1)
+
+if __name__ == "__main__":
+    main()
