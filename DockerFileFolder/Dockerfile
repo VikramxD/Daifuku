@@ -51,4 +51,4 @@ EXPOSE 8000
 WORKDIR /app/src/api
 
 # Command to run the server
-CMD ["python3", "mochi_serve.py"]
+CMD ["python3", "serve.py"]
