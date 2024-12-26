@@ -95,7 +95,7 @@ class AllegroInference:
             logger.error(f"Error during video generation: {e}")
             raise
 
-# Example usage (to be executed in a main script or testing environment)
+
 if __name__ == "__main__":
     settings = AllegroSettings()
     inference = AllegroInference(settings)
