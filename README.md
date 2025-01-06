@@ -53,7 +53,7 @@ Inspired by the concept of *daifuku mochi*—a sweet stuffed treat—this framew
 ### Installation
 
 ```bash
-git clone https://github.com/YourUserName/Daifuku.git
+git clone https://github.com/VikramxD/Daifuku.git
 cd Daifuku
 
 # Create a virtual environment
