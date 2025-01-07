@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 from configs.mochi_weights import MochiWeightsSettings
-
 def download_weights(settings: MochiWeightsSettings = MochiWeightsSettings()):
     """
     Download model weights using configuration from pydantic settings.

@@ -23,7 +23,7 @@ class VideoGenSettings(BaseSettings):
         embedded_guidance_scale (float): Scale for embedded guidance (1.0-20.0)
         output_dir (str): Directory path for saving generated videos
     """
-    model_path: str = Field(..., description="Path to the model")
+    model_path: str = Field('/root/Daifuku/hunyuan/ckpts/hunyuan-video-t2v-720p', description="Path to the model")
     prompt: str = Field(
         default="A cat walks on the grass, realistic style.",
         description="Prompt for video generation"
