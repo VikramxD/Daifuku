@@ -1,4 +1,4 @@
-[submodule "LTX-Video"]
+[submodule "ltx"]
 	path = ltx
 	url = https://github.com/VikramxD/ltx.git
 [submodule "hunyuan"]
