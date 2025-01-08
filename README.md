@@ -149,6 +149,24 @@ payload = {
 response = requests.post(url, json=payload)
 print(response.json())
 ```
+#### Allegro Model Example
+```python
+import requests
+
+url = "http://127.0.0.1:8000/api/v1/video/allegro"
+payload = {
+    "prompt": "A lively jazz band performing on a dimly lit stage, audience clapping",
+    "num_inference_steps": 45,
+    "guidance_scale": 4.5,
+    "height": 720,
+    "width": 1280,
+    "num_frames": 150,
+    "fps": 24
+}
+
+response = requests.post(url, json=payload)
+print(response.json())
+```
 
 ### Batch Requests
 
@@ -179,7 +197,7 @@ curl -X POST http://127.0.0.1:8000/predict \
 ## Features
 
 1. **Multi-Model T2V**  
-   Serve **Mochi** or **LTX** individually, or unify them under one endpoint.
+   Serve each model individually, or unify them under one endpoint.
 
 2. **Parallel Batch Processing**  
    Handle multiple requests concurrently for high throughput.
@@ -193,10 +211,8 @@ curl -X POST http://127.0.0.1:8000/predict \
 5. **S3 Integration**  
    Automatically upload `.mp4` files to Amazon S3 and return signed URLs.
 
-6. **Pydantic Config**  
-   Configurable schemas for Mochi (`mochi_settings.py`), LTX (`ltx_settings.py`), and combined setups.
 
-7. **Advanced Logging**  
+6. **Advanced Logging**  
    Uses [Loguru](https://github.com/Delgan/loguru) for detailed and structured logging.
 
 ---
@@ -398,6 +414,7 @@ Key metrics include:
 Endpoints:
 - **Mochi**: `/api/v1/metrics`
 - **LTX**: `/api/v1/metrics`
+- **Allegro**: `/api/v1/metrics`
 - **Combined**: `/metrics`
 
 ### Loguru Logging
@@ -406,6 +423,7 @@ Endpoints:
 - Find logs in:
   - `logs/api.log` (Mochi)
   - `logs/ltx_api.log` (LTX)
+  - `logs/allegro.log` (Rhymes AI Allegro)
   - `logs/combined_api.log` (Combined)
 
 ---
