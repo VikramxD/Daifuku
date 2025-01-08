@@ -414,5 +414,13 @@ Endpoints:
 
 Daifuku is licensed under the [MIT License](./LICENSE).
 
-<img src="https://api.star-history.com/svg?repos=vikramxD/Daifuku&type=Date" alt="Star History Chart" />
+## Star History
+
+<a href="https://star-history.com/#VikramxD/Daifuku">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=VikramxD/Daifuku&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=VikramxD/Daifuku" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=VikramxD/Daifuku" />
+ </picture>
+</a>
 
