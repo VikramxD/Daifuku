@@ -76,7 +76,7 @@ python scripts/download_weights.py
 Daifuku can serve models individually or combine them behind a single endpoint:
 
 <details>
-<summary><strong>Mochi-Only Server</strong></summary>
+<summary><strong>Mochi Server</strong></summary>
 
 ```bash
 python api/mochi_serve.py
@@ -85,7 +85,7 @@ python api/mochi_serve.py
 </details>
 
 <details>
-<summary><strong>LTX-Only Server</strong></summary>
+<summary><strong>LTX Server</strong></summary>
 
 ```bash
 python api/ltx_serve.py
@@ -94,12 +94,22 @@ python api/ltx_serve.py
 </details>
 
 <details>
+<summary><strong> Allegro Server </strong></summary>
+
+```bash
+python api/ltx_serve.py
+# Endpoint: http://127.0.0.1:8000/api/v1/video/ltx
+```  
+</details>
+
+
+<details>
 <summary><strong>Combined Server</strong></summary>
 
 ```bash
 python api/serve.py
 # Endpoint: http://127.0.0.1:8000/predict
-# Must supply "model_name": "mochi" or "model_name": "ltx" in the request payload.
+# Must supply "model_name" in the request payload.
 ```
 </details>
 
