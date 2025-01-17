@@ -37,6 +37,7 @@ from prometheus_client import CollectorRegistry, Histogram, make_asgi_app, multi
 from scripts.hunyuan_video_inference import HunyuanVideoInference
 from configs.hunyuan_config import HunyuanConfig
 from api.models import VideoGenerationRequest, VideoGenerationResponse, ErrorResponse
+import sys
 
 # Setup Prometheus multiprocess metrics
 os.environ["PROMETHEUS_MULTIPROC_DIR"] = "/tmp/prometheus_multiproc_hunyuan"
@@ -202,56 +203,66 @@ class HunyuanVideoAPI(ls.LitAPI):
                 )
                 
                 # Calculate metrics
-                duration = time.time() - start_time
-                fps = request["fps"] or self.config.default_fps
+                end_time = time.time()
+                duration = end_time - start_time
                 
-                # Create success response
-                response = VideoGenerationResponse(
-                    video_path=video_path,
-                    duration_seconds=duration,
-                    frames=request["num_frames"],
-                    fps=fps
-                )
-                
-                results.append({
+                result = {
                     "status": "success",
-                    "data": response.model_dump()
-                })
+                    "video_path": str(video_path),
+                    "generation_params": request,
+                    "time_taken": duration,
+                    "metrics": {
+                        "total_time": duration
+                    }
+                }
+                results.append(result)
+                
+                logger.info(f"Generation completed for prompt: {request['prompt']}")
                 
             except Exception as e:
                 logger.error(f"Video generation failed: {str(e)}")
-                error = ErrorResponse(
-                    error="Video generation failed",
-                    details=str(e)
-                )
-                results.append({
+                error_result = {
                     "status": "error",
-                    "error": error.model_dump()
-                })
-        
-        return results
-    
-    def encode_response(self, outputs: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Format the final API response.
+                    "error": str(e)
+                }
+                results.append(error_result)
+                
+        return results if results else [{"status": "error", "error": "No results generated"}]
+
+    def encode_response(self, output: Union[Dict[str, Any], List[Any]]) -> Dict[str, Any]:
+        """Format generation results for API response.
         
         Args:
-            outputs: List of generation results
+            output: Raw generation results or error information
             
         Returns:
-            Formatted response with status and data/error information
+            Formatted API response with standardized structure
+            
+        Note:
+            Handles both success and error cases with consistent formatting
         """
-        # Single request response
-        if len(outputs) == 1:
-            return outputs[0]
-        
-        # Batch request response
-        return {
-            "batch_results": outputs
-        }
-
+        if isinstance(output, list):
+            output = output[0] if output else {"status": "error", "error": "No output generated"}
+            
+        if output.get("status") == "success":
+            return {
+                "status": "success",
+                "video_path": output.get("video_path"),
+                "generation_params": output.get("generation_params", {}),
+                "time_taken": output.get("time_taken"),
+                "metrics": {
+                    "total_time": output.get("time_taken")
+                }
+            }
+        else:
+            return {
+                "status": "error",
+                "error": output.get("error", "Unknown error occurred")
+            }
 
 def main():
-    """Initialize and launch the Hunyuan video generation service.
+    """
+    Initialize and launch the Hunyuan video generation service.
     
     Sets up the complete service infrastructure including:
         - Prometheus metrics collection
@@ -259,20 +270,42 @@ def main():
         - API server
         - Error handling
     """
-    # Create metrics ASGI app
-    metrics_app = make_asgi_app(registry=registry)
-    
-    # Create and configure the API server
-    server = ls.LitServer(
-        api=HunyuanVideoAPI(),
-        host="0.0.0.0",
-        port=8000,
-        metrics_app=metrics_app
+    prometheus_logger = PrometheusLogger()
+    prometheus_logger.mount(
+        path="/api/v1/metrics",
+        app=make_asgi_app(registry=registry)
     )
     
-    # Start the server
-    server.serve()
+    logger.remove()
+    logger.add(
+        sys.stdout,
+        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan> - <level>{message}</level>",
+        level="INFO"
+    )
+    logger.add(
+        "logs/hunyuan_api.log",
+        rotation="100 MB",
+        retention="1 week",
+        level="DEBUG"
+    )
 
+    try:
+        api = HunyuanVideoAPI()
+        server = litserve.LitServer(
+            api,
+            api_path='/api/v1/video/hunyuan',
+            accelerator="auto",
+            devices="auto",
+            max_batch_size=1,
+            track_requests=True,
+            loggers=[prometheus_logger],
+            generate_client_file=False
+        )
+        logger.info("Starting Hunyuan video generation server on port 8000")
+        server.run(port=8000)
+    except Exception as e:
+        logger.error(f"Server failed to start: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
